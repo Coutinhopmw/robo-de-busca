@@ -10,7 +10,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 from webdriver_manager.chrome import ChromeDriverManager
 
 # --- CONFIGURAÇÕES ---
@@ -19,19 +18,32 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 INSTAGRAM_USERNAME = "antoniocassiorodrigueslima"
 INSTAGRAM_PASSWORD = "Lc181340sl@?"
 
-# ============================ AÇÃO NECESSÁRIA AQUI ============================
-# Edite esta lista com todas as palavras-chave que você quer pesquisar.
-# Dica: Use termos específicos com cidades para melhores resultados.
 PALAVRAS_CHAVE = [
-    "salão de beleza palmas",
-    "barbearia palmas tocantins",
-    "clínica estética palmas",
-    "loja de roupas palmas",
-    "restaurante palmas"
+    "salão de beleza",
+    "salão de estética",
+    "salão de cabeleireiro",
+    "salão feminino",
+    "salão masculino",
+    "barbearia",
+    "nail designer",
+    "espaço de beleza",
+    "espaço estético",
+    "centro de estética",
+    "clínica de estética",
+    "studio de beleza",
+    "studio de sobrancelhas",
+    "studio de maquiagem",
+    "spa de beleza",
+    "spa urbano",
+    "salão de unhas",
+    "ateliê de beleza",
+    "espaço de autocuidado",
+    "estúdio de beleza"
 ]
-# ==============================================================================
 
-ARQUIVO_SAIDA = f"perfis_comerciais_encontrados.csv"
+
+
+ARQUIVO_SAIDA = os.path.join("buscaClientesInstagram", "perfis_comerciais_encontrados.csv")
 
 
 # --- FUNÇÕES ---
@@ -46,9 +58,11 @@ def perform_login(driver, wait, username, password):
         wait.until(EC.url_contains("instagram.com"))
         logging.info("✅ Login realizado com sucesso.")
         try:
-            WebDriverWait(driver, 5).until(
+            # Lida com pop-ups de "Salvar informações" ou "Ativar notificações"
+            WebDriverWait(driver, 7).until(
                 EC.element_to_be_clickable((By.XPATH, "//*[text()='Agora não' or text()='Not Now']"))
             ).click()
+            logging.info("Pop-up 'Agora não' fechado.")
         except: pass
     except Exception as e:
         logging.error(f"❌ Erro inesperado durante o login: {e}")
@@ -56,31 +70,41 @@ def perform_login(driver, wait, username, password):
     return True
 
 def buscar_e_coletar_perfis(driver, wait, keywords):
-    """Busca por uma lista de palavras-chave e coleta os perfis encontrados."""
-    perfis_encontrados = {} # Usar um dicionário para evitar duplicatas (username -> dados)
+    """Pede ajuda para o clique inicial e depois busca e coleta os perfis."""
+    perfis_encontrados = {}
     
-    # Seletor para a linha de resultado, baseado na classe que você encontrou
-    # Usamos contains para o caso de a classe mudar um pouco, mas _a6hd parece ser a parte importante.
+    # ========================== INTERAÇÃO MANUAL NECESSÁRIA ==========================
+    input("\n" + "="*60 +
+          "\n   AÇÃO NECESSÁRIA: Por favor, clique no ícone de 'Pesquisa' (a lupa) na\n" +
+          "   janela do navegador que foi aberta.\n\n" +
+          "   Após o painel de busca aparecer, volte aqui e pressione ENTER para continuar...\n" +
+          "="*60 + "\n")
+    logging.info("✅ Interação manual recebida. Assumindo o controle...")
+    # ===============================================================================
+
+    # Seletor para a linha de resultado (baseado na sua última captura bem-sucedida)
     SELETOR_LINHA_RESULTADO = (By.XPATH, "//a[contains(@class, '_a6hd')]")
+
+    # Cria o arquivo CSV e escreve o cabeçalho se não existir
+    if not os.path.exists(ARQUIVO_SAIDA):
+        import csv
+        with open(ARQUIVO_SAIDA, mode='w', encoding='utf-8', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["username", "nome_completo", "subtitulo", "palavra_chave_origem"])
 
     for keyword in keywords:
         logging.info(f"\n🔎 Buscando pela palavra-chave: '{keyword}'")
         try:
-            # 1. Clicar no botão de Pesquisa
-            search_icon = wait.until(EC.element_to_be_clickable((By.XPATH, "//span[text()='Pesquisar']/ancestor::a")))
-            search_icon.click()
-            
-            # 2. Digitar a palavra-chave
+            # A caixa de busca já deve estar visível após o clique manual
             search_box = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@aria-label='Entrada da pesquisa']")))
-            # Limpa o campo de busca de forma segura
             search_box.send_keys(Keys.CONTROL + "a")
             search_box.send_keys(Keys.DELETE)
+            time.sleep(1)
             search_box.send_keys(keyword)
             
             logging.info("⏳ Aguardando resultados...")
             time.sleep(5)
 
-            # 3. Coletar os resultados
             resultados = wait.until(EC.presence_of_all_elements_located(SELETOR_LINHA_RESULTADO))
             logging.info(f"   ✅ Encontrados {len(resultados)} resultados para '{keyword}'.")
 
@@ -89,19 +113,13 @@ def buscar_e_coletar_perfis(driver, wait, keywords):
                     href = resultado.get_attribute('href')
                     username = href.strip('/').split('/')[-1]
 
-                    if username in perfis_encontrados: continue # Pula se já coletamos
+                    if username in perfis_encontrados: continue
 
                     spans = resultado.find_elements(By.TAG_NAME, 'span')
                     textos = [s.text.strip() for s in spans if s.text.strip()]
                     
-                    nome_completo = ""
-                    subtitulo = ""
-                    
-                    if len(textos) > 1:
-                        nome_completo = textos[0]
-                        subtitulo = textos[1]
-                    elif len(textos) == 1:
-                        nome_completo = textos[0]
+                    nome_completo = textos[0] if textos else ""
+                    subtitulo = textos[1] if len(textos) > 1 else ""
                     
                     if username and nome_completo:
                         perfis_encontrados[username] = {
@@ -111,19 +129,20 @@ def buscar_e_coletar_perfis(driver, wait, keywords):
                         }
                         logging.info(f"      -> Coletado: {username} ({nome_completo})")
 
-                except Exception:
-                    continue # Ignora erros em um único resultado e continua
+                        # Salva imediatamente no CSV
+                        import csv
+                        with open(ARQUIVO_SAIDA, mode='a', encoding='utf-8', newline='') as f:
+                            writer = csv.writer(f)
+                            writer.writerow([username, nome_completo, subtitulo, keyword])
+
+                except Exception: continue
             
-            # Pausa entre as buscas para segurança
-            pausa = random.uniform(5, 10)
+            pausa = random.uniform(3, 7)
             logging.info(f"   ⏸️ Pausando por {pausa:.1f} segundos antes da próxima busca...")
             time.sleep(pausa)
 
         except Exception as e:
             logging.error(f"❌ Falha ao processar a palavra-chave '{keyword}'. Erro: {e}")
-            # Clica em outro lugar para fechar a busca e tentar a próxima palavra-chave
-            try: driver.find_element(By.XPATH, "//a[contains(@href, '#')]").click() # Link de "Início"
-            except: pass
             continue
     
     return perfis_encontrados
@@ -142,15 +161,9 @@ if __name__ == "__main__":
             perfis = buscar_e_coletar_perfis(driver, wait, PALAVRAS_CHAVE)
             
             if perfis:
-                # Transforma o dicionário em um DataFrame do Pandas
-                df = pd.DataFrame.from_dict(perfis, orient='index')
-                df.reset_index(inplace=True)
-                df.rename(columns={'index': 'username'}, inplace=True)
-                
-                df.to_csv(ARQUIVO_SAIDA, index=False, encoding='utf-8')
                 logging.info(f"\n✅ SUCESSO! {len(perfis)} perfis únicos foram encontrados e salvos em '{ARQUIVO_SAIDA}'")
             else:
-                logging.info("\n⚠️ Nenhuma perfil foi encontrado para as palavras-chave fornecidas.")
+                logging.info("\n⚠️ Nenhum perfil foi encontrado para as palavras-chave fornecidas.")
 
     except Exception as final_e:
         logging.critical(f"❌ Um erro inesperado ocorreu no fluxo principal: {final_e}")
