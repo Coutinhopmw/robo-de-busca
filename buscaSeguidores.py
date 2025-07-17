@@ -405,7 +405,7 @@ def coletar_seguidores(driver, wait, perfil_alvo, limite_seguidores, arquivo_sai
     scroll_container = None
     possible_containers = [
         # By.CSS_SELECTOR, 'div.x6nl9eh.x1a5l9x9.x7vuprf.x1mg3h75.x1lliihq.x1iyjqo2.xs83m0k.xz65tgg.x1rife3k.x1n2onr6', # Classe comum para modais roláveis do Instagram
-        by.CSS_SELECTOR, 'x6nl9eh x1a5l9x9 x7vuprf x1mg3h75 x1lliihq x1iyjqo2 xs83m0k xz65tgg x1rife3k x1n2onr6,'
+        By.CSS_SELECTOR, 'x6nl9eh x1a5l9x9 x7vuprf x1mg3h75 x1lliihq x1iyjqo2 xs83m0k xz65tgg x1rife3k x1n2onr6',
         By.XPATH, ".//div[contains(@style, 'overflow-y: scroll')]", # Genérico, mas pode funcionar
         By.XPATH, ".//ul", # Às vezes, a lista está dentro de um UL
         By.XPATH, ".//div[@tabindex='0' or @tabindex='-1']", # Outros elementos com tabindex que podem ser roláveis
