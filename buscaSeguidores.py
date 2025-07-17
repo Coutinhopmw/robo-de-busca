@@ -18,9 +18,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # --- SUAS CONFIGURAÇÕES ---
 INSTAGRAM_USERNAME = "antoniocassiorodrigueslima"
 INSTAGRAM_PASSWORD = "Lc181340sl@?"
-PERFIL_ALVO = "prefeituradeparaiso" 
+PERFIL_ALVO = "fgtaekwondo" 
 LIMITE_SEGUIDORES = float('inf') 
-ARQUIVO_SAIDA_SEGUIDORES = os.path.join("seguidores", f"seguidores_{PERFIL_ALVO}.csv")
+# Nome do arquivo de saída atualizado para refletir o conteúdo
+# ARQUIVO_SAIDA_SEGUIDORES = f"seguidores_enriquecido_{PERFIL_ALVO}.csv"
+ARQUIVO_SAIDA_SEGUIDORES = os.path.join("seguidores", f"seguidores_enriquecido_{PERFIL_ALVO}.csv")
 
 # --- FUNÇÕES DO SCRIPT ---
 
@@ -98,6 +100,7 @@ def coletar_seguidores(driver, wait, perfil_alvo, limite_seguidores):
                 continue
 
             novos_encontrados = 0
+            # ======================= INÍCIO DA LÓGICA DE EXTRAÇÃO ENRIQUECIDA =======================
             for linha in linhas_de_usuario:
                 try:
                     link_element = linha.find_element(By.TAG_NAME, "a")
@@ -106,6 +109,7 @@ def coletar_seguidores(driver, wait, perfil_alvo, limite_seguidores):
 
                     if username in seguidores: continue
 
+                    # 1. Extrai Nome Completo
                     nome_completo = ""
                     spans = linha.find_elements(By.TAG_NAME, "span")
                     textos = [s.text.strip() for s in spans if s.text.strip() and "·" not in s.text and "Seguir" not in s.text]
@@ -115,11 +119,33 @@ def coletar_seguidores(driver, wait, perfil_alvo, limite_seguidores):
                     elif len(textos) > 0 and textos[0].lower() != username.lower():
                         nome_completo = textos[0]
                     
+                    # 2. Extrai Status de Verificação
+                    verificado = True if linha.find_elements(By.XPATH, ".//svg[@aria-label='Verificado']") else False
+
+                    # 3. Extrai URL da Foto de Perfil
+                    url_foto_perfil = ""
+                    try:
+                        url_foto_perfil = linha.find_element(By.TAG_NAME, "img").get_attribute('src')
+                    except NoSuchElementException: pass
+
+                    # 4. Extrai Status da Relação
+                    status_relacao = ""
+                    try:
+                        status_relacao = linha.find_element(By.TAG_NAME, "button").text
+                    except NoSuchElementException: pass
+
+                    # Armazena todos os dados em um dicionário
                     if username:
-                        seguidores[username] = nome_completo
+                        seguidores[username] = {
+                            "nome_completo": nome_completo,
+                            "verificado": verificado,
+                            "url_foto_perfil": url_foto_perfil,
+                            "status_relacao": status_relacao
+                        }
                         novos_encontrados += 1
                 except Exception:
                     continue
+            # ======================== FIM DA LÓGICA DE EXTRAÇÃO ENRIQUECIDA ========================
             
             if novos_encontrados > 0:
                 logging.info(f"Capturados {novos_encontrados} novos usuários. Total: {len(seguidores)}")
@@ -145,13 +171,9 @@ def coletar_seguidores(driver, wait, perfil_alvo, limite_seguidores):
 if __name__ == "__main__":
     driver = None
     try:
-        # ======================= CORREÇÃO DO ERRO 'options' =======================
-        # As linhas abaixo criam e configuram o 'options' antes de usá-lo.
-        # Elas foram acidentalmente removidas na versão anterior.
         options = Options()
         options.add_argument("--start-maximized")
         options.add_experimental_option('excludeSwitches', ['enable-logging'])
-        # ==========================================================================
 
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
         wait = WebDriverWait(driver, 20)
@@ -160,16 +182,22 @@ if __name__ == "__main__":
             if garantir_perfil_alvo(driver, wait, PERFIL_ALVO):
                 todos_seguidores = coletar_seguidores(driver, wait, PERFIL_ALVO, LIMITE_SEGUIDORES)
                 if todos_seguidores:
-                    df = pd.DataFrame(list(todos_seguidores.items()), columns=["username", "nome_completo"])
+                    # ======================= SALVANDO OS DADOS ENRIQUECIDOS =======================
+                    # Transforma o dicionário de dicionários em um DataFrame do Pandas
+                    df = pd.DataFrame.from_dict(todos_seguidores, orient='index')
+                    # Reseta o índice para que o 'username' se torne uma coluna
+                    df.reset_index(inplace=True)
+                    df.rename(columns={'index': 'username'}, inplace=True)
+                    
                     df.to_csv(ARQUIVO_SAIDA_SEGUIDORES, index=False, encoding='utf-8')
                     logging.info(f"\n✅ SUCESSO! {len(todos_seguidores)} seguidores salvos em {ARQUIVO_SAIDA_SEGUIDORES}")
+                    # ==============================================================================
                 else:
                     logging.info("\n⚠️ Nenhum seguidor foi coletado.")
     except Exception as final_e:
         logging.critical(f"❌ Um erro inesperado ocorreu no fluxo principal do script: {final_e}")
     finally:
         if driver:
-            # Fecha o botão de fechar do modal de seguidores, se ainda estiver aberto.
             try: 
                 driver.find_element(By.XPATH, "//div[@role='dialog']//button[contains(@class, 'x1i10hfl')]").click()
                 time.sleep(1)
