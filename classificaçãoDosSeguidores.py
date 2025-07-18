@@ -206,6 +206,7 @@ PALAVRAS_CHAVE_ESTUDANTE = {
         r'grupo\s?\d+', r'monografia', r'tcc', r'banca\s?final'
     ]
 }
+
 # =======================================================================================
 # --- FUNÇÕES DE ANÁLISE ---
 
@@ -271,9 +272,64 @@ def identificar_estudante(row):
         detalhe_estudo = ", ".join(palavras_encontradas)
     return eh_estudante, detalhe_estudo
 
+def detectar_bot_ou_fake(row):
+    # Critérios para suspeita de bot/fake
+    # 1. Poucos posts
+    n_posts = converter_para_numero(row.get('n_publicacoes', 0))
+    # 2. Seguidores/seguindo muito desproporcional
+    n_seguidores = converter_para_numero(row.get('n_seguidores', 0))
+    n_seguindo = converter_para_numero(row.get('n_seguindo', 0))
+    ratio = n_seguindo / (n_seguidores + 1)
+    # 3. Username com muitos números ou padrão aleatório
+    username = str(row.get('username', ''))
+    nome_completo = str(row.get('nome_completo', ''))
+    # 4. Ausência de foto (campo 'link_externo' vazio pode ser um indicativo, mas o ideal é ter um campo 'tem_foto')
+    # 5. Nome completo ausente ou igual ao username
+    # 6. Bio vazia
+    bio = str(row.get('bio', ''))
+    suspeito = False
+    motivos = []
+    if n_posts <= 2:
+        suspeito = True
+        motivos.append('Poucos posts')
+    if n_seguidores > 1000 and ratio > 10:
+        suspeito = True
+        motivos.append('Segue muito mais do que é seguido')
+    if re.fullmatch(r'[a-zA-Z0-9]{8,}', username) and sum(c.isdigit() for c in username) > 4:
+        suspeito = True
+        motivos.append('Username aleatório')
+    if not nome_completo or nome_completo.lower() == username.lower():
+        suspeito = True
+        motivos.append('Nome ausente ou igual ao username')
+    if not bio.strip():
+        suspeito = True
+        motivos.append('Bio vazia')
+    # Se houver campo de foto futuramente, pode adicionar aqui
+    return ('Suspeito', "; ".join(motivos)) if suspeito else ('Normal', '')
+
+def limpar_e_padronizar_dataframe(df):
+    # Remove duplicados pelo username
+    df = df.drop_duplicates(subset=['username'])
+    # Remove usernames inválidos (comentários, curtidas, vazios, muito curtos, etc)
+    padroes_invalidos = ['liked_by', 'comments', 'terms', 'privacy', 'locations', 'lite', 'explore', 'direct', 'accounts', 'legal', 'people', 'preferences', 'upload', 'meta', 'openai', 'xpinvestimentos']
+    df = df[df['username'].apply(lambda x: isinstance(x, str) and len(x) >= 3 and not any(p in x.lower() for p in padroes_invalidos) and not x.startswith('?') and not x.startswith('#'))]
+    # Padroniza nomes próprios
+    if 'nome_completo' in df.columns:
+        df['nome_completo'] = df['nome_completo'].astype(str).apply(lambda x: x.title().strip())
+    # Padroniza e-mails
+    if 'email' in df.columns:
+        df['email'] = df['email'].astype(str).str.lower().str.strip()
+    # Padroniza telefones (mantém só números, formato nacional)
+    if 'telefone' in df.columns:
+        df['telefone'] = df['telefone'].astype(str).apply(lambda x: re.sub(r'\D', '', x))
+        df['telefone'] = df['telefone'].apply(lambda x: x if 10 <= len(x) <= 13 else '')
+    return df
+
 def executar_analise_completa(df):
     """Aplica todas as funções de análise e classificação ao DataFrame."""
     logging.info("Iniciando pipeline de análise completa...")
+    # Limpeza e padronização antes de tudo
+    df = limpar_e_padronizar_dataframe(df)
 
     # Garante que colunas essenciais existam e preenche valores nulos
     for col in ['n_seguidores', 'n_seguindo', 'email', 'telefone', 'link_externo', 'bio', 'categoria', 'nome_completo', 'username', 'endereco']:
@@ -281,7 +337,7 @@ def executar_analise_completa(df):
     df.fillna({'bio': '', 'categoria': '', 'nome_completo': '', 'endereco': ''}, inplace=True)
 
     # --- ETAPA 1: Análise Básica ---
-    logging.info("ETAPA 1/5: Realizando análise básica (influência, contato, etc.)...")
+    logging.info("ETAPA 1/6: Realizando análise básica (influência, contato, etc.)...")
     df['n_seguidores_num'] = df['n_seguidores'].apply(converter_para_numero)
     df['n_seguindo_num'] = df['n_seguindo'].apply(converter_para_numero)
     df['nivel_influencia'] = df['n_seguidores_num'].apply(lambda x: 'Iniciante (< 1k)' if x < 1000 else 'Nano-influenciador (1k - 10k)' if x < 10000 else 'Micro-influenciador (10k - 100k)' if x < 100000 else 'Médio Porte (100k - 1M)' if x < 1000000 else 'Macro/Mega-influenciador (> 1M)')
@@ -291,20 +347,24 @@ def executar_analise_completa(df):
     df['palavras_chave_bio'] = df['bio'].apply(lambda bio: ", ".join([p for p in PALAVRAS_CHAVE_BIO_GERAL if isinstance(bio, str) and p in bio.lower()]))
 
     # --- ETAPA 2: Classificação de Tipo de Perfil ---
-    logging.info("ETAPA 2/5: Classificando tipo de perfil (Empresa vs. Pessoa)...")
+    logging.info("ETAPA 2/6: Classificando tipo de perfil (Empresa vs. Pessoa)...")
     df['tipo_perfil'] = df.apply(lambda row: "Empresa / Comércio" if (sum(p in str(row.get('categoria','')).lower() for p in PALAVRAS_CHAVE_EMPRESA)*5 + sum(p in f"{str(row.get('bio',''))} {str(row.get('nome_completo',''))}".lower() for p in PALAVRAS_CHAVE_EMPRESA)*3 + (2 if row.get('potencial_contato') == 'Sim' else 0) + (1 if row.get('possui_link_externo') == 'Sim' else 0) - (2 if sum(p in str(row.get('categoria','')).lower() for p in PALAVRAS_CHAVE_PESSOA) else 0)) >= 4 else "Pessoa / Criador", axis=1)
 
     # --- ETAPA 3: Extração de Localização ---
-    logging.info("ETAPA 3/5: Extraindo informações de localização (cidade/estado)...")
+    logging.info("ETAPA 3/6: Extraindo informações de localização (cidade/estado)...")
     df[['cidade', 'estado']] = df.apply(extrair_localizacao, axis=1, result_type='expand')
 
     # --- ETAPA 4: Análise Demográfica ---
-    logging.info("ETAPA 4/5: Inferindo idade e gênero...")
+    logging.info("ETAPA 4/6: Inferindo idade e gênero...")
     df[['idade_aprox', 'genero_inferido']] = df.apply(extrair_caracteristicas_demograficas, axis=1, result_type='expand')
     
     # --- ETAPA 5: Identificação de Estudantes ---
-    logging.info("ETAPA 5/5: Identificando prováveis estudantes...")
+    logging.info("ETAPA 5/6: Identificando prováveis estudantes...")
     df[['eh_estudante', 'detalhe_estudo']] = df.apply(identificar_estudante, axis=1, result_type='expand')
+
+    # --- ETAPA 6: Detecção de Bots/Fakes ---
+    logging.info("ETAPA 6/6: Detectando perfis suspeitos (bots/fakes)...")
+    df[['perfil_suspeito', 'motivo_suspeita']] = df.apply(detectar_bot_ou_fake, axis=1, result_type='expand')
 
     df.drop(columns=['n_seguidores_num', 'n_seguindo_num'], inplace=True, errors='ignore')
     logging.info("✅ Pipeline de análise concluído!")
