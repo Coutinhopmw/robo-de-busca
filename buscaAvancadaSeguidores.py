@@ -47,21 +47,18 @@ def perform_login(driver, wait, username, password):
         return False
     return True
 
-# ======================= NOVA FUNÇÃO AUXILIAR =======================
 def limpar_numero(texto):
     """Remove pontos, vírgulas e palavras (mil, milhões) de um número em formato de texto."""
     if not isinstance(texto, str):
         return texto
-    texto = texto.lower().replace('milhões', 'm').replace('mil', 'k')
-    texto = texto.replace(',', '.').strip()
+    texto = texto.lower().replace('milhões', 'm').replace('mil', 'k').replace(',', '.').strip()
     
     if 'k' in texto:
         return str(int(float(texto.replace('k', '')) * 1000))
     if 'm' in texto:
         return str(int(float(texto.replace('m', '')) * 1000000))
     
-    return re.sub(r'\D', '', texto) # Remove qualquer caractere não numérico
-# =======================================================================
+    return re.sub(r'\D', '', texto)
 
 def extrair_dados_avancados_perfil(driver, wait, username):
     """Visita um perfil e extrai as informações avançadas com lógica de extração corrigida."""
@@ -80,39 +77,57 @@ def extrair_dados_avancados_perfil(driver, wait, username):
             dados["status_conta"] = "Privada"
             return dados
 
-        # ======================= LÓGICA DE EXTRAÇÃO CORRIGIDA E APRIMORADA =======================
-        # 1. Extrai números de publicações, seguidores e seguindo
+        # 1. Extrai números de publicações, seguidores e seguindo (LÓGICA MANTIDA CONFORME SEU PEDIDO)
         try:
             stats_elements = header.find_elements(By.XPATH, ".//li//span")
             if len(stats_elements) >= 3:
-                # Aplica a função de limpeza para obter apenas os números
                 dados['n_publicacoes'] = limpar_numero(stats_elements[0].text)
                 dados['n_seguidores'] = limpar_numero(stats_elements[2].get_attribute('title') or stats_elements[2].text)
                 dados['n_seguindo'] = limpar_numero(stats_elements[4].text)
         except Exception:
             logging.warning(f"   ⚠️ Não foi possível extrair os números (publicações, seguidores) de '{username}'.")
 
-        # 2. Verifica se o perfil tem o selo de verificado
+        # 2. Verifica se o perfil tem o selo de verificado (LÓGICA MANTIDA CONFORME SEU PEDIDO)
         try:
             header.find_element(By.XPATH, ".//svg[@aria-label='Verificado']")
             dados['verificado'] = True
         except NoSuchElementException:
             dados['verificado'] = False
         
-        # 3. Extrai a biografia e o link externo com um seletor mais robusto
+        # ======================= INÍCIO DA ALTERAÇÃO (SOMENTE LEITURA DA BIO) =======================
+        # 3. Extrai a biografia completa e o link externo com a nova lógica robusta
         try:
-            # Este seletor encontra a div que geralmente contém a bio
-            bio_container = driver.find_element(By.XPATH, "//h1/ancestor::div[1]")
-            dados["bio"] = bio_container.text.split('\n')[1] if '\n' in bio_container.text else bio_container.text
+            # Seletor para a div que contém nome, bio, categoria e link.
+            bio_container = driver.find_element(By.XPATH, "//div[contains(@class, 'x7a106v')]")
             
-            # O link externo pode estar em um 'a' dentro do mesmo container
-            try:
-                link_element = bio_container.find_element(By.TAG_NAME, "a")
-                dados["link_externo"] = link_element.get_attribute("href")
-            except NoSuchElementException: pass
+            # Pega todos os spans e o link dentro do container
+            elementos_bio = bio_container.find_elements(By.XPATH, ".//span | .//a")
+            
+            textos_bio = []
+            link_externo = ""
+
+            for elemento in elementos_bio:
+                # Se for um link, extrai o href para o campo de link externo
+                if elemento.tag_name == 'a':
+                    href = elemento.get_attribute('href')
+                    # Garante que é um link externo e não um mention (@) ou hashtag (#)
+                    if href and not href.startswith(f"https://www.instagram.com/"):
+                        link_externo = href
+                
+                # Adiciona o texto do elemento à lista, exceto o texto do link que já capturamos
+                texto_elemento = elemento.text.strip()
+                if texto_elemento and elemento.get_attribute('href') is None:
+                    # Ignora o nome do perfil, pois já temos essa informação
+                    if 'h1' not in elemento.find_element(By.XPATH, '..').tag_name:
+                        textos_bio.append(texto_elemento)
+            
+            # Junta as linhas da bio com quebras de linha
+            dados["bio"] = "\n".join(textos_bio)
+            dados["link_externo"] = link_externo
+
         except NoSuchElementException:
             logging.warning(f"   ⚠️ Bio ou link externo não encontrados para '{username}'.")
-        # =========================================================================================
+        # ======================= FIM DA ALTERAÇÃO =======================
             
     except TimeoutException:
         if "Esta página não está disponível" in driver.page_source:
