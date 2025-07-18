@@ -3,7 +3,6 @@ import time
 import logging
 import os
 import random
-import re
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -21,7 +20,10 @@ INSTAGRAM_USERNAME = "proescola.com.br"
 INSTAGRAM_PASSWORD = "Pro35c0l@2025"
 
 # --- CONFIGURAÇÃO DOS ARQUIVOS ---
+# O robô vai ler os usernames deste arquivo:
 ARQUIVO_ENTRADA = os.path.join("seguidores", "seguidores_enriquecido_souto.barbearia.csv")
+
+# O robô vai criar e salvar os dados completos na pasta 'dadosAvancados'
 PASTA_SAIDA = "dadosAvancados"
 if not os.path.exists(PASTA_SAIDA):
     os.makedirs(PASTA_SAIDA, exist_ok=True)
@@ -47,72 +49,50 @@ def perform_login(driver, wait, username, password):
         return False
     return True
 
-# ======================= NOVA FUNÇÃO AUXILIAR =======================
-def limpar_numero(texto):
-    """Remove pontos, vírgulas e palavras (mil, milhões) de um número em formato de texto."""
-    if not isinstance(texto, str):
-        return texto
-    texto = texto.lower().replace('milhões', 'm').replace('mil', 'k')
-    texto = texto.replace(',', '.').strip()
-    
-    if 'k' in texto:
-        return str(int(float(texto.replace('k', '')) * 1000))
-    if 'm' in texto:
-        return str(int(float(texto.replace('m', '')) * 1000000))
-    
-    return re.sub(r'\D', '', texto) # Remove qualquer caractere não numérico
-# =======================================================================
-
 def extrair_dados_avancados_perfil(driver, wait, username):
-    """Visita um perfil e extrai as informações avançadas com lógica de extração corrigida."""
+    """Visita um perfil e extrai as informações avançadas."""
     url_perfil = f"https://www.instagram.com/{username}/"
     driver.get(url_perfil)
     
     dados = {
         "bio": "", "n_publicacoes": "0", "n_seguidores": "0", "n_seguindo": "0",
-        "link_externo": "", "verificado": False, "status_conta": "Pública"
+        "link_externo": "", "status_conta": "Pública"
     }
 
     try:
-        header = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "header")))
+        # Espera o cabeçalho do perfil carregar para garantir que a página não está em um estado de erro
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "header")))
+
+        # Verifica se a conta é privada
         if "Esta conta é privada" in driver.page_source:
             logging.warning(f"   🔒 Perfil '{username}' é privado.")
             dados["status_conta"] = "Privada"
             return dados
 
-        # ======================= LÓGICA DE EXTRAÇÃO CORRIGIDA E APRIMORADA =======================
-        # 1. Extrai números de publicações, seguidores e seguindo
+        # Extrai números de publicações, seguidores e seguindo
         try:
-            stats_elements = header.find_elements(By.XPATH, ".//li//span")
-            if len(stats_elements) >= 3:
-                # Aplica a função de limpeza para obter apenas os números
-                dados['n_publicacoes'] = limpar_numero(stats_elements[0].text)
-                dados['n_seguidores'] = limpar_numero(stats_elements[2].get_attribute('title') or stats_elements[2].text)
-                dados['n_seguindo'] = limpar_numero(stats_elements[4].text)
+            stats_elements = driver.find_elements(By.CSS_SELECTOR, "header li span span")
+            if len(stats_elements) == 3:
+                dados["n_publicacoes"] = stats_elements[0].text
+                dados["n_seguidores"] = stats_elements[1].text
+                dados["n_seguindo"] = stats_elements[2].text
         except Exception:
-            logging.warning(f"   ⚠️ Não foi possível extrair os números (publicações, seguidores) de '{username}'.")
+             logging.warning(f"   ⚠️ Não foi possível extrair os números (publicações, seguidores) de '{username}'.")
 
-        # 2. Verifica se o perfil tem o selo de verificado
+        # Extrai a biografia e o link externo
         try:
-            header.find_element(By.XPATH, ".//svg[@aria-label='Verificado']")
-            dados['verificado'] = True
-        except NoSuchElementException:
-            dados['verificado'] = False
-        
-        # 3. Extrai a biografia e o link externo com um seletor mais robusto
-        try:
-            # Este seletor encontra a div que geralmente contém a bio
-            bio_container = driver.find_element(By.XPATH, "//h1/ancestor::div[1]")
-            dados["bio"] = bio_container.text.split('\n')[1] if '\n' in bio_container.text else bio_container.text
-            
-            # O link externo pode estar em um 'a' dentro do mesmo container
+            # Tenta encontrar o container da bio de uma forma mais genérica
+            bio_container = driver.find_element(By.XPATH, "//header/section/div[3]")
+            # A bio pode estar em um h1 (para contas de criador/business) ou em um span
             try:
-                link_element = bio_container.find_element(By.TAG_NAME, "a")
-                dados["link_externo"] = link_element.get_attribute("href")
-            except NoSuchElementException: pass
+                dados["bio"] = bio_container.find_element(By.TAG_NAME, "h1").find_element(By.XPATH, "./following-sibling::span").text
+            except NoSuchElementException:
+                dados["bio"] = bio_container.find_element(By.TAG_NAME, "span").text
+
+            # O link é um 'a' dentro do mesmo container
+            dados["link_externo"] = bio_container.find_element(By.TAG_NAME, "a").get_attribute("href")
         except NoSuchElementException:
-            logging.warning(f"   ⚠️ Bio ou link externo não encontrados para '{username}'.")
-        # =========================================================================================
+            pass # É normal não ter bio ou link, então apenas ignora o erro
             
     except TimeoutException:
         if "Esta página não está disponível" in driver.page_source:
@@ -130,17 +110,24 @@ def extrair_dados_avancados_perfil(driver, wait, username):
 
 # --- FLUXO PRINCIPAL DE EXECUÇÃO ---
 if __name__ == "__main__":
+
     if not os.path.exists(ARQUIVO_ENTRADA):
-        logging.error(f"O arquivo de entrada '{ARQUIVO_ENTRADA}' não foi encontrado!")
+        logging.error(f"O arquivo de entrada '{ARQUIVO_ENTRADA}' não foi encontrado! Verifique o nome e se ele está na mesma pasta do script.")
         exit()
 
     df_entrada = pd.read_csv(ARQUIVO_ENTRADA)
     if 'username' not in df_entrada.columns:
-        logging.error("O arquivo de entrada '{ARQUIVO_ENTRADA}' deve conter uma coluna chamada 'username'.")
+        logging.error(f"O arquivo de entrada '{ARQUIVO_ENTRADA}' deve conter uma coluna chamada 'username'.")
         exit()
 
     usernames_para_buscar = df_entrada['username'].tolist()
-    colunas_finais = list(df_entrada.columns) + ["bio", "n_publicacoes", "n_seguidores", "n_seguindo", "link_externo", "verificado", "status_conta"]
+
+    colunas_finais = list(df_entrada.columns) + ["bio", "n_publicacoes", "n_seguidores", "n_seguindo", "link_externo", "status_conta"]
+
+    # Garante que o diretório do arquivo de saída existe
+    dir_saida = os.path.dirname(ARQUIVO_SAIDA)
+    if dir_saida and not os.path.exists(dir_saida):
+        os.makedirs(dir_saida, exist_ok=True)
 
     if os.path.exists(ARQUIVO_SAIDA):
         logging.info("Encontrado arquivo de progresso. Continuando de onde parou...")
@@ -173,16 +160,20 @@ if __name__ == "__main__":
             
             dados_avancados = extrair_dados_avancados_perfil(driver, wait, username)
             
+            # Junta os dados originais do CSV de entrada com os novos dados coletados
             dados_originais = df_entrada[df_entrada['username'] == username].to_dict('records')[0]
             registro_completo = {**dados_originais, **dados_avancados}
 
+            # =================== LÓGICA DE SALVAMENTO ATUALIZADA ===================
+            # Cria um DataFrame com apenas uma linha e anexa ao arquivo CSV
             df_para_salvar = pd.DataFrame([registro_completo])
-            df_para_salvar = df_para_salvar.reindex(columns=colunas_finais)
             df_para_salvar.to_csv(ARQUIVO_SAIDA, mode='a', header=False, index=False, encoding='utf-8')
             logging.info(f"✅ Dados de '{username}' salvos no CSV.")
+            # =======================================================================
             
             total_processados_sessao += 1
             
+            # Pausa aleatória entre cada perfil para segurança
             pausa = random.uniform(8, 15)
             logging.info(f"   ⏸️ Pausando por {pausa:.1f} segundos...")
             time.sleep(pausa)

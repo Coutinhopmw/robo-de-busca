@@ -8,7 +8,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Nome do arquivo CSV de entrada (gerado pelo script de coleta de dados avançados)
-ARQUIVO_ENTRADA = "leads_detalhados.csv" 
+ARQUIVO_ENTRADA = "seguidores_enriquecido_souto.barbearia.csv" 
 
 # Nome do arquivo CSV final que será gerado com TODAS as análises
 ARQUIVO_SAIDA = "perfis_analise_completa.csv"
@@ -273,20 +273,15 @@ def identificar_estudante(row):
     return eh_estudante, detalhe_estudo
 
 def detectar_bot_ou_fake(row):
-    # Critérios para suspeita de bot/fake
-    # 1. Poucos posts
     n_posts = converter_para_numero(row.get('n_publicacoes', 0))
-    # 2. Seguidores/seguindo muito desproporcional
     n_seguidores = converter_para_numero(row.get('n_seguidores', 0))
     n_seguindo = converter_para_numero(row.get('n_seguindo', 0))
     ratio = n_seguindo / (n_seguidores + 1)
-    # 3. Username com muitos números ou padrão aleatório
     username = str(row.get('username', ''))
     nome_completo = str(row.get('nome_completo', ''))
-    # 4. Ausência de foto (campo 'link_externo' vazio pode ser um indicativo, mas o ideal é ter um campo 'tem_foto')
-    # 5. Nome completo ausente ou igual ao username
-    # 6. Bio vazia
     bio = str(row.get('bio', ''))
+    url_foto_perfil = str(row.get('url_foto_perfil', ''))
+    verificado = row.get('verificado', False)
     suspeito = False
     motivos = []
     if n_posts <= 2:
@@ -304,7 +299,12 @@ def detectar_bot_ou_fake(row):
     if not bio.strip():
         suspeito = True
         motivos.append('Bio vazia')
-    # Se houver campo de foto futuramente, pode adicionar aqui
+    if not url_foto_perfil or url_foto_perfil.strip() == '' or url_foto_perfil.lower() == 'nan':
+        suspeito = True
+        motivos.append('Sem foto de perfil')
+    if verificado:
+        suspeito = False
+        motivos = []
     return ('Suspeito', "; ".join(motivos)) if suspeito else ('Normal', '')
 
 def limpar_e_padronizar_dataframe(df):
