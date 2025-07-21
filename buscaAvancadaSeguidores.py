@@ -17,11 +17,11 @@ from webdriver_manager.chrome import ChromeDriverManager
 # --- CONFIGURAÇÕES ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-INSTAGRAM_USERNAME = "proescola.com.br"
-INSTAGRAM_PASSWORD = "Pro35c0l@2025"
+INSTAGRAM_USERNAME = "antoniocassiorodrigueslima@gmail.com"
+INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
 
 # --- CONFIGURAÇÃO DOS ARQUIVOS ---
-ARQUIVO_ENTRADA = os.path.join("seguidores", "seguidores_enriquecido_souto.barbearia.csv")
+ARQUIVO_ENTRADA = os.path.join("seguidores", "seguidores_enriquecido_edianemarinho_.csv")
 PASTA_SAIDA = "dadosAvancados"
 if not os.path.exists(PASTA_SAIDA):
     os.makedirs(PASTA_SAIDA, exist_ok=True)
@@ -94,40 +94,75 @@ def extrair_dados_avancados_perfil(driver, wait, username):
         except NoSuchElementException:
             dados['verificado'] = False
         
-        # ======================= INÍCIO DA ALTERAÇÃO (SOMENTE LEITURA DA BIO) =======================
-        # 3. Extrai a biografia completa e o link externo com a nova lógica robusta
+
+
+        # 3. Extrai a biografia completa e o link externo de forma robusta
         try:
-            # Seletor para a div que contém nome, bio, categoria e link.
-            bio_container = driver.find_element(By.XPATH, "//div[contains(@class, 'x7a106v')]")
-            
-            # Pega todos os spans e o link dentro do container
-            elementos_bio = bio_container.find_elements(By.XPATH, ".//span | .//a")
-            
             textos_bio = []
             link_externo = ""
+            # 1. Tenta encontrar a bio por diferentes caminhos comuns
+            # a) Bio logo após o nome do perfil (h1)
+            try:
+                h1 = header.find_element(By.TAG_NAME, "h1")
+                # O próximo elemento pode ser a bio (div ou span)
+                next_elem = h1.find_element(By.XPATH, "following-sibling::*[1]")
+                if next_elem.tag_name in ["div", "span"]:
+                    bio_text = next_elem.text.strip()
+                    if bio_text:
+                        textos_bio.append(bio_text)
+            except Exception:
+                pass
 
-            for elemento in elementos_bio:
-                # Se for um link, extrai o href para o campo de link externo
-                if elemento.tag_name == 'a':
-                    href = elemento.get_attribute('href')
-                    # Garante que é um link externo e não um mention (@) ou hashtag (#)
-                    if href and not href.startswith(f"https://www.instagram.com/"):
-                        link_externo = href
-                
-                # Adiciona o texto do elemento à lista, exceto o texto do link que já capturamos
-                texto_elemento = elemento.text.strip()
-                if texto_elemento and elemento.get_attribute('href') is None:
-                    # Ignora o nome do perfil, pois já temos essa informação
-                    if 'h1' not in elemento.find_element(By.XPATH, '..').tag_name:
-                        textos_bio.append(texto_elemento)
-            
-            # Junta as linhas da bio com quebras de linha
-            dados["bio"] = "\n".join(textos_bio)
+            # b) Busca por todos os spans/divs dentro do header que não sejam o nome, categoria ou link
+            bio_candidates = header.find_elements(By.XPATH, ".//div|.//span")
+            for elem in bio_candidates:
+                # Ignora se for o nome do perfil (h1) ou categoria (normalmente tem aria-label ou role)
+                if elem.text and elem.text.strip():
+                    parent_tag = elem.find_element(By.XPATH, "..")
+                    if parent_tag.tag_name == "h1":
+                        continue
+                    # Ignora se for link
+                    if elem.find_elements(By.TAG_NAME, "a"):
+                        continue
+                    # Evita duplicidade
+                    if elem.text.strip() not in textos_bio:
+                        textos_bio.append(elem.text.strip())
+
+            # c) Busca por link externo (primeiro <a> que não seja menção ou hashtag)
+            try:
+                link_elem = header.find_element(By.XPATH, ".//a[not(contains(@href, '/')) and starts-with(@href, 'http')]" )
+                link_externo = link_elem.get_attribute('href')
+            except Exception:
+                # fallback: pega o primeiro <a> externo
+                try:
+                    link_elem = header.find_element(By.XPATH, ".//a[starts-with(@href, 'http') and not(contains(@href, 'instagram.com'))]")
+                    link_externo = link_elem.get_attribute('href')
+                except Exception:
+                    pass
+
+            # Limpeza da bio: remove quebras de linha e termos irrelevantes
+            bio_final = " ".join(textos_bio).strip().replace('\n', ' ').replace('\r', ' ')
+            # Remove termos irrelevantes
+            termos_irrelevantes = [
+                'Seguir', 'Enviar mensagem', 'publicações', 'seguidores', 'seguindo',
+                'mensagem', 'mensagens', 'seguir', 'seguindo', 'seguidores', 'publicação',
+                'enviar mensagem', 'enviarmensagem', 'seguir', 'seguindo', 'seguidores',
+                'publicações', 'publicação', 'mensagem', 'mensagens'
+            ]
+            # Remove também padrões como "25 publicações", "81 seguidores", "52 seguindo" etc.
+            import re
+            for termo in termos_irrelevantes:
+                bio_final = re.sub(rf'\b{re.escape(termo)}\b', '', bio_final, flags=re.IGNORECASE)
+            # Remove padrões numéricos irrelevantes
+            bio_final = re.sub(r'\b\d+\s*(publicações|seguidores|seguindo)\b', '', bio_final, flags=re.IGNORECASE)
+            # Remove múltiplos espaços
+            bio_final = re.sub(r'\s+', ' ', bio_final).strip()
+            dados["bio"] = bio_final
             dados["link_externo"] = link_externo
-
+            if not bio_final:
+                raise NoSuchElementException()
         except NoSuchElementException:
             logging.warning(f"   ⚠️ Bio ou link externo não encontrados para '{username}'.")
-        # ======================= FIM DA ALTERAÇÃO =======================
             
     except TimeoutException:
         if "Esta página não está disponível" in driver.page_source:
