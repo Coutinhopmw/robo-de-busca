@@ -7,8 +7,12 @@ from datetime import datetime
 # --- CONFIGURAÇÕES GERAIS ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
+# Caminho absoluto do diretório do script
+DIR_SCRIPT = os.path.dirname(os.path.abspath(__file__))
+
 # Nome do arquivo CSV de entrada (gerado pelo script de coleta de dados avançados)
-ARQUIVO_ENTRADA = "dados_avancados_seguidores_enriquecido_edianemarinho_.csv"
+ARQUIVO_ENTRADA = os.path.join(DIR_SCRIPT, "..", "dadosTratados", "dados_avancados_seguidores_enriquecido_acipparaiso copy.csv")
 
 # ======================= CONFIGURAÇÕES PARA ANÁLISE E SEGMENTAÇÃO =======================
 # 1. Defina as colunas que você quer usar para criar as pastas e segmentar os arquivos CSV.
@@ -16,7 +20,7 @@ COLUNAS_PARA_SEGMENTAR = [
     'tipo_perfil',
     'estado',
     'cidade',
-    'eh_estudante',
+    'estudante',
     'genero_inferido',
     'nivel_influencia'
 ]
@@ -63,10 +67,12 @@ def analisar_e_classificar(df):
     for col in ['bio', 'categoria', 'nome_completo', 'endereco']:
         if col in df.columns: df[col] = df[col].fillna('')
 
-    # Aplica todas as análises para criar novas colunas
-    df['n_seguidores_num'] = df['n_seguidores'].apply(converter_para_numero)
-    df['n_seguindo_num'] = df['n_seguindo'].apply(converter_para_numero)
-    df['nivel_influencia'] = df['n_seguidores_num'].apply(lambda x: 'Iniciante' if x < 1000 else 'Nano' if x < 10000 else 'Micro' if x < 100000 else 'Médio' if x < 1000000 else 'Macro/Mega')
+    # Aplica análises de influência apenas se as colunas existirem
+    if 'n_seguidores' in df.columns:
+        df['n_seguidores_num'] = df['n_seguidores'].apply(converter_para_numero)
+        df['nivel_influencia'] = df['n_seguidores_num'].apply(lambda x: 'Iniciante' if x < 1000 else 'Nano' if x < 10000 else 'Micro' if x < 100000 else 'Médio' if x < 1000000 else 'Macro/Mega')
+    if 'n_seguindo' in df.columns:
+        df['n_seguindo_num'] = df['n_seguindo'].apply(converter_para_numero)
     
     def extrair_local(row):
         texto = f"{row.get('bio', '')} {row.get('nome_completo', '')}".lower()
@@ -145,14 +151,14 @@ if __name__ == "__main__":
     try:
         logging.info(f"Lendo o arquivo de dados: {ARQUIVO_ENTRADA}")
         df_original = pd.read_csv(ARQUIVO_ENTRADA)
-        
+
         # Roda o pipeline completo de análise
         df_analisado = analisar_e_classificar(df_original.copy())
-        
-        # Define a pasta base para a classificação
+
+        # Define a pasta base para a classificação (relativa ao script)
         nome_base_entrada = os.path.splitext(os.path.basename(ARQUIVO_ENTRADA))[0]
-        pasta_base_saida = os.path.join("classificacao", nome_base_entrada)
-        
+        pasta_base_saida = os.path.join(DIR_SCRIPT, "..", "classificacao", nome_base_entrada)
+
         # Salva o arquivo completo e unificado
         arquivo_completo_saida = os.path.join(pasta_base_saida, "analise_completa.csv")
         os.makedirs(pasta_base_saida, exist_ok=True)

@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 INSTAGRAM_USERNAME = "antoniocassiorodrigueslima@gmail.com"
 INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
-PERFIL_ALVO = "clinicadraleticiakarolline" 
+PERFIL_ALVO = "titaniumparaiso" 
 
 # Limites (ajuste conforme necessário)
 MAX_POSTS_PARA_ANALISAR = 200
@@ -158,38 +158,59 @@ def coletar_curtidas_de_posts(driver, wait, perfil_alvo, max_posts, max_curtidas
     """Função principal que orquestra todo o processo de coleta de curtidas."""
     
     post_links = get_post_links(driver, wait, perfil_alvo, max_posts)
-    if not post_links: return []
+    if not post_links:
+        return []
 
-    dados_finais = []
+    colunas = [
+        "data_post", "texto_post", "username_curtiu",
+        "nome_completo_curtiu", "verificado",
+        "url_foto_perfil", "status_relacao"
+    ]
+
+    # Cria o arquivo CSV com cabeçalho antes de começar
+    if not os.path.exists(ARQUIVO_SAIDA_CURTIDAS):
+        pd.DataFrame(columns=colunas).to_csv(ARQUIVO_SAIDA_CURTIDAS, index=False, encoding='utf-8')
+
     for i, post_url in enumerate(post_links):
         try:
             logging.info(f"\n➡️  Analisando Post {i+1}/{len(post_links)}")
             driver.get(post_url)
-            
-            data_post, texto_post = get_post_details(driver, wait) # Passa o 'wait'
+
+            data_post, texto_post = get_post_details(driver, wait)
             logging.info(f"   Data: {data_post} | Legenda: {texto_post[:30]}...")
-            
+
             wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, '/liked_by/')]"))).click()
-            
+
             likers = scrape_likes_from_modal(driver, wait, max_curtidas)
             logging.info(f"   ✅ Coletadas {len(likers)} curtidas para este post.")
-            
-            for username, detalhes in likers.items():
-                dados_finais.append({
-                    "data_post": data_post, "texto_post": texto_post, "username_curtiu": username,
-                    "nome_completo_curtiu": detalhes["nome_completo"], "verificado": detalhes["verificado"],
-                    "url_foto_perfil": detalhes["url_foto_perfil"], "status_relacao": detalhes["status_relacao"]
-                })
-            
+
+            # Salva incrementalmente no CSV
+            if likers:
+                dados_post = []
+                for username, detalhes in likers.items():
+                    dados_post.append({
+                        "data_post": data_post,
+                        "texto_post": texto_post,
+                        "username_curtiu": username,
+                        "nome_completo_curtiu": detalhes["nome_completo"],
+                        "verificado": detalhes["verificado"],
+                        "url_foto_perfil": detalhes["url_foto_perfil"],
+                        "status_relacao": detalhes["status_relacao"]
+                    })
+                df_post = pd.DataFrame(dados_post)
+                df_post.to_csv(ARQUIVO_SAIDA_CURTIDAS, mode='a', header=False, index=False, encoding='utf-8')
+
             try:
                 driver.find_element(By.XPATH, "//div[@role='dialog']//div[contains(@aria-label, 'Fechar')] | //div[@role='dialog']//button").click()
-            except: driver.get(f"https://www.instagram.com/{perfil_alvo}/")
+            except:
+                driver.get(f"https://www.instagram.com/{perfil_alvo}/")
             time.sleep(1)
         except Exception as e:
             logging.error(f"   ❌ Falha ao processar o post {post_url}. Erro: {e}")
             continue
-            
-    return dados_finais
+
+    # Não retorna mais os dados, pois já foram salvos incrementalmente
+    return None
 
 # --- FLUXO PRINCIPAL DE EXECUÇÃO ---
 if __name__ == "__main__":
@@ -202,14 +223,8 @@ if __name__ == "__main__":
         wait = WebDriverWait(driver, 2)
         
         if perform_login(driver, wait, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD):
-            todos_os_dados = coletar_curtidas_de_posts(driver, wait, PERFIL_ALVO, MAX_POSTS_PARA_ANALISAR, MAX_CURTIDAS_POR_POST)
-            
-            if todos_os_dados:
-                df = pd.DataFrame(todos_os_dados)
-                df.to_csv(ARQUIVO_SAIDA_CURTIDAS, index=False, encoding='utf-8')
-                logging.info(f"\n✅ SUCESSO! {len(df)} registros de curtidas salvos em {ARQUIVO_SAIDA_CURTIDAS}")
-            else:
-                logging.info("\n⚠️ Nenhum dado de curtida foi coletado.")
+            coletar_curtidas_de_posts(driver, wait, PERFIL_ALVO, MAX_POSTS_PARA_ANALISAR, MAX_CURTIDAS_POR_POST)
+            logging.info(f"\n✅ Processo finalizado! Os dados de curtidas foram salvos incrementalmente em {ARQUIVO_SAIDA_CURTIDAS}")
 
     except Exception as final_e:
         logging.critical(f"❌ Um erro inesperado ocorreu no fluxo principal: {final_e}")

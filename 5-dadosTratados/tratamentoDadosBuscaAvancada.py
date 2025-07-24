@@ -6,14 +6,15 @@ import re
 # --- CONFIGURAÇÕES ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Caminho absoluto do diretório do script
+DIR_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 
 # Nome do arquivo CSV de entrada (agora lendo da pasta 'dadosAvancados')
-ARQUIVO_ENTRADA = os.path.join("dadosAvancados", "dados_avancados_seguidores_enriquecido_edianemarinho_.csv")
+ARQUIVO_ENTRADA = os.path.join(DIR_SCRIPT, "..", "dadosAvancados", "dados_avancados_seguidores_enriquecido_acipparaiso copy.csv")
 
 # Nome do arquivo de saída: dadosTratados + nome do csv lido
 NOME_ARQUIVO_ENTRADA = os.path.basename(ARQUIVO_ENTRADA)
-ARQUIVO_SAIDA = os.path.join("dadosTratados", NOME_ARQUIVO_ENTRADA)
-
+ARQUIVO_SAIDA = os.path.join(DIR_SCRIPT, "..", "dadosTratados", NOME_ARQUIVO_ENTRADA)
 
 # --- FUNÇÕES AUXILIARES DE LIMPEZA ---
 
@@ -149,11 +150,30 @@ if __name__ == "__main__":
     try:
         logging.info(f"Lendo o arquivo de dados: {ARQUIVO_ENTRADA}")
         dataframe_original = pd.read_csv(ARQUIVO_ENTRADA)
-        
+        logging.info(f"Colunas encontradas no arquivo: {list(dataframe_original.columns)}")
+
+        # Verifica se existe 'username' ou 'username_curtiu'
+        username_col = None
+        if 'username' in dataframe_original.columns:
+            username_col = 'username'
+        elif 'username_curtiu' in dataframe_original.columns:
+            username_col = 'username_curtiu'
+            # Renomeia para 'username' para manter o pipeline
+            dataframe_original = dataframe_original.rename(columns={'username_curtiu': 'username'})
+            logging.info("Coluna 'username_curtiu' encontrada e renomeada para 'username'.")
+        else:
+            logging.critical(f"❌ Nenhuma coluna de username encontrada! Colunas disponíveis: {list(dataframe_original.columns)}")
+            exit(1)
+
         dataframe_limpo = tratar_e_limpar_csv(dataframe_original.copy())
-        
+
+        # Garante que a pasta de saída existe
+        pasta_saida = os.path.dirname(ARQUIVO_SAIDA)
+        if not os.path.exists(pasta_saida):
+            os.makedirs(pasta_saida)
+
         dataframe_limpo.to_csv(ARQUIVO_SAIDA, index=False, encoding='utf-8')
-        
+
         logging.info("="*60)
         logging.info(f"🎉 SUCESSO! O arquivo com os dados tratados foi salvo em:")
         logging.info(f"   👉 {ARQUIVO_SAIDA}")

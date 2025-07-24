@@ -17,8 +17,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 # --- CONFIGURAÇÕES ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-INSTAGRAM_USERNAME = "antoniocassiorodrigueslima@gmail.com"
-INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
+INSTAGRAM_USERNAME = "proescola.com.br"
+INSTAGRAM_PASSWORD = "Pro35c0l@2025"
 
 # --- CONFIGURAÇÃO DOS ARQUIVOS ---
 ARQUIVO_ENTRADA = os.path.join("seguidores", "seguidores_enriquecido_edianemarinho_.csv")
