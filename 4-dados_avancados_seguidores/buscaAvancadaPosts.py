@@ -17,11 +17,12 @@ from webdriver_manager.chrome import ChromeDriverManager
 # --- CONFIGURAÇÕES ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-INSTAGRAM_USERNAME = "proescola.com.br"
-INSTAGRAM_PASSWORD = "Pro35c0l@2025"
+
+INSTAGRAM_USERNAME = "gabijardimsantos"
+INSTAGRAM_PASSWORD = "Lc181340sl@?"
 
 # --- CONFIGURAÇÃO DOS ARQUIVOS ---
-ARQUIVO_ENTRADA = os.path.join("seguidores", "seguidores_enriquecido_edianemarinho_.csv")
+ARQUIVO_ENTRADA = os.path.join("..", "1-posts", "curtidas_completo_dra.carolcabrall.csv")
 PASTA_SAIDA = "dadosAvancados"
 if not os.path.exists(PASTA_SAIDA):
     os.makedirs(PASTA_SAIDA, exist_ok=True)
@@ -185,22 +186,28 @@ if __name__ == "__main__":
         exit()
 
     df_entrada = pd.read_csv(ARQUIVO_ENTRADA)
-    if 'username' not in df_entrada.columns:
-        logging.error("O arquivo de entrada '{ARQUIVO_ENTRADA}' deve conter uma coluna chamada 'username'.")
+
+# Verifica se todas as colunas necessárias existem
+colunas_necessarias = [
+    "data_post", "texto_post", "username_curtiu", "nome_completo_curtiu", "verificado", "url_foto_perfil", "status_relacao"
+]
+for col in colunas_necessarias:
+    if col not in df_entrada.columns:
+        logging.error(f"O arquivo de entrada '{ARQUIVO_ENTRADA}' deve conter a coluna '{col}'.")
         exit()
 
-    usernames_para_buscar = df_entrada['username'].tolist()
-    colunas_finais = list(df_entrada.columns) + ["bio", "n_publicacoes", "n_seguidores", "n_seguindo", "link_externo", "verificado", "status_conta"]
+usernames_para_buscar = df_entrada['username_curtiu'].tolist()
+colunas_finais = colunas_necessarias + ["bio", "n_publicacoes", "n_seguidores", "n_seguindo", "link_externo", "verificado_extra", "status_conta"]
 
-    if os.path.exists(ARQUIVO_SAIDA):
-        logging.info("Encontrado arquivo de progresso. Continuando de onde parou...")
-        df_progresso = pd.read_csv(ARQUIVO_SAIDA)
-        usernames_ja_buscados = df_progresso['username'].tolist()
-        usernames_para_buscar = [u for u in usernames_para_buscar if u not in usernames_ja_buscados]
-        logging.info(f"{len(usernames_ja_buscados)} perfis já processados. Restam {len(usernames_para_buscar)}.")
-    else:
-        pd.DataFrame(columns=colunas_finais).to_csv(ARQUIVO_SAIDA, index=False, encoding='utf-8')
-        logging.info(f"Arquivo de saída '{ARQUIVO_SAIDA}' criado com sucesso.")
+if os.path.exists(ARQUIVO_SAIDA):
+    logging.info("Encontrado arquivo de progresso. Continuando de onde parou...")
+    df_progresso = pd.read_csv(ARQUIVO_SAIDA)
+    usernames_ja_buscados = df_progresso['username_curtiu'].tolist() if 'username_curtiu' in df_progresso.columns else []
+    usernames_para_buscar = [u for u in usernames_para_buscar if u not in usernames_ja_buscados]
+    logging.info(f"{len(usernames_ja_buscados)} perfis já processados. Restam {len(usernames_para_buscar)}.")
+else:
+    pd.DataFrame(columns=colunas_finais).to_csv(ARQUIVO_SAIDA, index=False, encoding='utf-8')
+    logging.info(f"Arquivo de saída '{ARQUIVO_SAIDA}' criado com sucesso.")
 
     if not usernames_para_buscar:
         logging.info("Todos os perfis já foram processados. Encerrando.")
@@ -218,21 +225,30 @@ if __name__ == "__main__":
             exit()
         
         total_processados_sessao = 0
+
         for i, username in enumerate(usernames_para_buscar):
             logging.info(f"➡️  Processando perfil {i+1}/{len(usernames_para_buscar)}: {username}")
-            
+
             dados_avancados = extrair_dados_avancados_perfil(driver, wait, username)
-            
-            dados_originais = df_entrada[df_entrada['username'] == username].to_dict('records')[0]
-            registro_completo = {**dados_originais, **dados_avancados}
+
+            dados_originais = df_entrada[df_entrada['username_curtiu'] == username].to_dict('records')[0]
+            registro_completo = {**dados_originais,
+                "bio": dados_avancados.get("bio", ""),
+                "n_publicacoes": dados_avancados.get("n_publicacoes", ""),
+                "n_seguidores": dados_avancados.get("n_seguidores", ""),
+                "n_seguindo": dados_avancados.get("n_seguindo", ""),
+                "link_externo": dados_avancados.get("link_externo", ""),
+                "verificado_extra": dados_avancados.get("verificado", ""),
+                "status_conta": dados_avancados.get("status_conta", "")
+            }
 
             df_para_salvar = pd.DataFrame([registro_completo])
             df_para_salvar = df_para_salvar.reindex(columns=colunas_finais)
             df_para_salvar.to_csv(ARQUIVO_SAIDA, mode='a', header=False, index=False, encoding='utf-8')
             logging.info(f"✅ Dados de '{username}' salvos no CSV.")
-            
+
             total_processados_sessao += 1
-            
+
             pausa = random.uniform(8, 15)
             logging.info(f"   ⏸️ Pausando por {pausa:.1f} segundos...")
             time.sleep(pausa)

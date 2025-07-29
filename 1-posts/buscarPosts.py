@@ -15,15 +15,22 @@ from webdriver_manager.chrome import ChromeDriverManager
 # --- CONFIGURAÇÕES ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-INSTAGRAM_USERNAME = "antoniocassiorodrigueslima@gmail.com"
-INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
-PERFIL_ALVO = "titaniumparaiso" 
+# INSTAGRAM_USERNAME = "antoniocassiorodrigueslima@gmail.com"
+# INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
+# PERFIL_ALVO = "titaniumparaiso" 
+
+INSTAGRAM_USERNAME = "proescola.com.br"
+INSTAGRAM_PASSWORD = "Pro35c0l@2025"
+# INSTAGRAM_USERNAME = "gabijardimsantos"
+# INSTAGRAM_PASSWORD = "Lc181340sl@?"
+PERFIL_ALVO = "dra.carolcabrall" 
 
 # Limites (ajuste conforme necessário)
 MAX_POSTS_PARA_ANALISAR = 200
 MAX_CURTIDAS_POR_POST = float('inf') # Use float('inf') para pegar todos
 
-ARQUIVO_SAIDA_CURTIDAS = os.path.join("posts", f"curtidas_completo_{PERFIL_ALVO}.csv")
+# Salva o arquivo de saída na mesma pasta do script
+ARQUIVO_SAIDA_CURTIDAS = os.path.join(os.path.dirname(__file__), f"curtidas_completo_{PERFIL_ALVO}.csv")
 
 
 # --- FUNÇÕES AUXILIARES ---

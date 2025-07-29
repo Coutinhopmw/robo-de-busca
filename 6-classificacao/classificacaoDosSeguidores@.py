@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 DIR_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 
 # Nome do arquivo CSV de entrada (gerado pelo script de coleta de dados avançados)
-ARQUIVO_ENTRADA = os.path.join(DIR_SCRIPT, "..", "dadosTratados", "dados_avancados_seguidores_enriquecido_acipparaiso copy.csv")
+ARQUIVO_ENTRADA = os.path.join(DIR_SCRIPT, "..", "5-dadosTratados", "dados_avancados_curtidas_completo_sebraeto.csv")
 
 # ======================= CONFIGURAÇÕES PARA ANÁLISE E SEGMENTAÇÃO =======================
 # 1. Defina as colunas que você quer usar para criar as pastas e segmentar os arquivos CSV.
@@ -155,18 +155,14 @@ if __name__ == "__main__":
         # Roda o pipeline completo de análise
         df_analisado = analisar_e_classificar(df_original.copy())
 
-        # Define a pasta base para a classificação (relativa ao script)
-        nome_base_entrada = os.path.splitext(os.path.basename(ARQUIVO_ENTRADA))[0]
-        pasta_base_saida = os.path.join(DIR_SCRIPT, "..", "classificacao", nome_base_entrada)
 
-        # Salva o arquivo completo e unificado
-        arquivo_completo_saida = os.path.join(pasta_base_saida, "analise_completa.csv")
-        os.makedirs(pasta_base_saida, exist_ok=True)
+        # Salva o arquivo completo e unificado na mesma pasta do script
+        arquivo_completo_saida = os.path.join(DIR_SCRIPT, "analise_completa.csv")
         df_analisado.to_csv(arquivo_completo_saida, index=False, encoding='utf-8')
         logging.info(f"🎉 SUCESSO! O arquivo com a análise COMPLETA foi salvo em: {arquivo_completo_saida}")
 
-        # Salva os arquivos segmentados
-        salvar_segmentos(df_analisado, pasta_base_saida, COLUNAS_PARA_SEGMENTAR)
+        # Salva os arquivos segmentados na mesma pasta do script
+        salvar_segmentos(df_analisado, DIR_SCRIPT, COLUNAS_PARA_SEGMENTAR)
 
     except Exception as e:
         logging.critical(f"❌ Um erro inesperado ocorreu durante a análise: {e}")

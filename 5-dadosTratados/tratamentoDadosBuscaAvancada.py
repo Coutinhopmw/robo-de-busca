@@ -9,12 +9,12 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Caminho absoluto do diretório do script
 DIR_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 
-# Nome do arquivo CSV de entrada (agora lendo da pasta 'dadosAvancados')
-ARQUIVO_ENTRADA = os.path.join(DIR_SCRIPT, "..", "dadosAvancados", "dados_avancados_seguidores_enriquecido_acipparaiso copy.csv")
+# Nome do arquivo CSV de entrada (ajustado para o nome correto da pasta)
+ARQUIVO_ENTRADA = os.path.join(DIR_SCRIPT, "..", "4-dados_avancados_seguidores", "dados_avancados_curtidas_completo_sebraeto.csv")
 
 # Nome do arquivo de saída: dadosTratados + nome do csv lido
 NOME_ARQUIVO_ENTRADA = os.path.basename(ARQUIVO_ENTRADA)
-ARQUIVO_SAIDA = os.path.join(DIR_SCRIPT, "..", "dadosTratados", NOME_ARQUIVO_ENTRADA)
+ARQUIVO_SAIDA = os.path.join(DIR_SCRIPT, NOME_ARQUIVO_ENTRADA)
 
 # --- FUNÇÕES AUXILIARES DE LIMPEZA ---
 
@@ -161,6 +161,10 @@ if __name__ == "__main__":
             # Renomeia para 'username' para manter o pipeline
             dataframe_original = dataframe_original.rename(columns={'username_curtiu': 'username'})
             logging.info("Coluna 'username_curtiu' encontrada e renomeada para 'username'.")
+        # Renomeia 'nome_completo_curtiu' para 'nome_completo' se existir
+        if 'nome_completo_curtiu' in dataframe_original.columns:
+            dataframe_original = dataframe_original.rename(columns={'nome_completo_curtiu': 'nome_completo'})
+            logging.info("Coluna 'nome_completo_curtiu' encontrada e renomeada para 'nome_completo'.")
         else:
             logging.critical(f"❌ Nenhuma coluna de username encontrada! Colunas disponíveis: {list(dataframe_original.columns)}")
             exit(1)

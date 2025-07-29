@@ -18,11 +18,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # --- SUAS CONFIGURAÇÕES ---
 INSTAGRAM_USERNAME = "proescola.com.br"
 INSTAGRAM_PASSWORD = "Pro35c0l@2025"
-PERFIL_ALVO = "bjjtocantins" 
+# INSTAGRAM_USERNAME = "gabijardimsantos"
+# INSTAGRAM_PASSWORD = "Lc181340sl@?"
+PERFIL_ALVO = "dra.carolcabrall" 
 LIMITE_SEGUIDORES = float('inf') 
 # Nome do arquivo de saída atualizado para refletir o conteúdo
 # ARQUIVO_SAIDA_SEGUIDORES = f"seguidores_enriquecido_{PERFIL_ALVO}.csv"
-ARQUIVO_SAIDA_SEGUIDORES = os.path.join("seguidores", f"seguidores_enriquecido_{PERFIL_ALVO}.csv")
+
+ARQUIVO_SAIDA_SEGUIDORES = f"seguidores_enriquecido_{PERFIL_ALVO}.csv"
 
 # --- FUNÇÕES DO SCRIPT ---
 
@@ -55,20 +58,25 @@ def garantir_perfil_alvo(driver, wait, perfil_alvo):
         logging.error(f"❌ Não foi possível acessar o perfil {perfil_alvo}: {e}")
         return False
 
-def coletar_seguidores(driver, wait, perfil_alvo, limite_seguidores):
+def coletar_seguidores(driver, wait, perfil_alvo, limite_seguidores, caminho_saida):
     logging.info("📥 Coletando seguidores em tempo real...")
-    seguidores = {}
+    seguidores = set()
     scrolls_sem_novos = 0
     scroll_limit = 15
 
+    # Prepara o arquivo de saída: se não existir, cria com cabeçalho
+    colunas = ["username", "nome_completo", "verificado", "url_foto_perfil", "status_relacao"]
+    if not os.path.exists(caminho_saida):
+        pd.DataFrame(columns=colunas).to_csv(caminho_saida, index=False, encoding='utf-8')
+
     try:
         logging.info("🔍 Procurando e clicando no botão de 'seguidores'...")
-        seguidores_btn = wait.until(EC.element_to_be_clickable((By.XPATH, f"//a[contains(@href, '/followers/')]")))
+        seguidores_btn = wait.until(EC.element_to_be_clickable((By.XPATH, f"//a[contains(@href, '/followers/')]") ))
         seguidores_btn.click()
         logging.info("✅ Botão de seguidores clicado.")
     except Exception as e:
         logging.error(f"❌ Erro ao clicar no botão de seguidores: {e}")
-        return {}
+        return 0
 
     try:
         logging.info("⏳ Aguardando modal e pausando 3 segundos para carregar...")
@@ -76,7 +84,7 @@ def coletar_seguidores(driver, wait, perfil_alvo, limite_seguidores):
         time.sleep(3)
     except Exception as e:
         logging.error(f"❌ Erro ao carregar a janela de seguidores: {e}")
-        return {}
+        return 0
         
     SELETOR_CONTAINER_SCROLL = (By.XPATH, "//div[contains(@class, 'x6nl9eh')]")
     SELETOR_LINHA_USUARIO = (By.CSS_SELECTOR, "div.x9f619.x1ja2u2z.x78zum5.x2lah0s.x1n2onr6.x1qughib.x6s0dn4.xozqiw3.x1q0g3np")
@@ -86,8 +94,9 @@ def coletar_seguidores(driver, wait, perfil_alvo, limite_seguidores):
         logging.info("✅ Container de rolagem encontrado com sucesso!")
     except NoSuchElementException:
         logging.error("❌ Não foi possível encontrar o container de rolagem com o seletor definitivo.")
-        return {}
+        return 0
 
+    total_salvos = 0
     while len(seguidores) < limite_seguidores and scrolls_sem_novos < scroll_limit:
         try:
             driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", scroll_container)
@@ -100,53 +109,55 @@ def coletar_seguidores(driver, wait, perfil_alvo, limite_seguidores):
                 continue
 
             novos_encontrados = 0
-            # ======================= INÍCIO DA LÓGICA DE EXTRAÇÃO ENRIQUECIDA =======================
             for linha in linhas_de_usuario:
                 try:
                     link_element = linha.find_element(By.TAG_NAME, "a")
                     href = link_element.get_attribute('href')
                     username = href.strip('/').split('/')[-1]
 
-                    if username in seguidores: continue
+                    if username in seguidores:
+                        continue
 
-                    # 1. Extrai Nome Completo
                     nome_completo = ""
                     spans = linha.find_elements(By.TAG_NAME, "span")
                     textos = [s.text.strip() for s in spans if s.text.strip() and "·" not in s.text and "Seguir" not in s.text]
-                    
                     if len(textos) > 1 and textos[0].lower() == username.lower():
                         nome_completo = textos[1]
                     elif len(textos) > 0 and textos[0].lower() != username.lower():
                         nome_completo = textos[0]
-                    
-                    # 2. Extrai Status de Verificação
+
                     verificado = True if linha.find_elements(By.XPATH, ".//svg[@aria-label='Verificado']") else False
 
-                    # 3. Extrai URL da Foto de Perfil
                     url_foto_perfil = ""
                     try:
                         url_foto_perfil = linha.find_element(By.TAG_NAME, "img").get_attribute('src')
-                    except NoSuchElementException: pass
+                    except NoSuchElementException:
+                        pass
 
-                    # 4. Extrai Status da Relação
                     status_relacao = ""
                     try:
                         status_relacao = linha.find_element(By.TAG_NAME, "button").text
-                    except NoSuchElementException: pass
+                    except NoSuchElementException:
+                        pass
 
-                    # Armazena todos os dados em um dicionário
                     if username:
-                        seguidores[username] = {
+                        seguidores.add(username)
+                        registro = {
+                            "username": username,
                             "nome_completo": nome_completo,
                             "verificado": verificado,
                             "url_foto_perfil": url_foto_perfil,
                             "status_relacao": status_relacao
                         }
+                        # Salva imediatamente no CSV
+                        df = pd.DataFrame([registro])
+                        df.to_csv(caminho_saida, mode='a', header=False, index=False, encoding='utf-8')
+                        total_salvos += 1
                         novos_encontrados += 1
+                        logging.info(f"Salvo: {username}")
                 except Exception:
                     continue
-            # ======================== FIM DA LÓGICA DE EXTRAÇÃO ENRIQUECIDA ========================
-            
+
             if novos_encontrados > 0:
                 logging.info(f"Capturados {novos_encontrados} novos usuários. Total: {len(seguidores)}")
                 scrolls_sem_novos = 0
@@ -165,7 +176,7 @@ def coletar_seguidores(driver, wait, perfil_alvo, limite_seguidores):
             logging.error(f"⚠️ Erro inesperado durante a coleta: {e}")
             break
 
-    return seguidores
+    return total_salvos
 
 # --- FLUXO PRINCIPAL ---
 if __name__ == "__main__":
@@ -180,18 +191,9 @@ if __name__ == "__main__":
         
         if perform_login(driver, wait, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD):
             if garantir_perfil_alvo(driver, wait, PERFIL_ALVO):
-                todos_seguidores = coletar_seguidores(driver, wait, PERFIL_ALVO, LIMITE_SEGUIDORES)
-                if todos_seguidores:
-                    # ======================= SALVANDO OS DADOS ENRIQUECIDOS =======================
-                    # Transforma o dicionário de dicionários em um DataFrame do Pandas
-                    df = pd.DataFrame.from_dict(todos_seguidores, orient='index')
-                    # Reseta o índice para que o 'username' se torne uma coluna
-                    df.reset_index(inplace=True)
-                    df.rename(columns={'index': 'username'}, inplace=True)
-                    
-                    df.to_csv(ARQUIVO_SAIDA_SEGUIDORES, index=False, encoding='utf-8')
-                    logging.info(f"\n✅ SUCESSO! {len(todos_seguidores)} seguidores salvos em {ARQUIVO_SAIDA_SEGUIDORES}")
-                    # ==============================================================================
+                total_salvos = coletar_seguidores(driver, wait, PERFIL_ALVO, LIMITE_SEGUIDORES, ARQUIVO_SAIDA_SEGUIDORES)
+                if total_salvos > 0:
+                    logging.info(f"\n✅ SUCESSO! {total_salvos} seguidores salvos em {ARQUIVO_SAIDA_SEGUIDORES}")
                 else:
                     logging.info("\n⚠️ Nenhum seguidor foi coletado.")
     except Exception as final_e:
