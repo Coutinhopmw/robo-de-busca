@@ -17,14 +17,14 @@ from webdriver_manager.chrome import ChromeDriverManager
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 INSTAGRAM_USERNAME = "orkestragestao"
-INSTAGRAM_PASSWORD = "Lc181340sl@?" # Substitua pela sua senha
+INSTAGRAM_PASSWORD = "Lc181340sl@?" 
 
 # ============================ AÇÃO NECESSÁRIA AQUI (EDITAR) ============================
 # 1. Nome do arquivo CSV que contém a coluna 'username'.
 ARQUIVO_ENTRADA = "Empresa__Comércio.csv" # Exemplo
 
 # 2. Defina o número MÁXIMO de perfis para seguir NESTA SESSÃO.
-MAX_SEGUIR_SESSAO = 300
+MAX_SEGUIR_SESSAO = 5000
 
 # 3. Defina o intervalo de tempo em segundos para a pausa entre as ações de seguir.
 PAUSA_MINIMA_SEGUNDOS = 60  # 1 minuto

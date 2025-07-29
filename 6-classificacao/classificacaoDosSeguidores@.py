@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 DIR_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 
 # Nome do arquivo CSV de entrada (gerado pelo script de coleta de dados avançados)
-ARQUIVO_ENTRADA = os.path.join(DIR_SCRIPT, "..", "5-dadosTratados", "dados_avancados_curtidas_completo_sebraeto.csv")
+ARQUIVO_ENTRADA = os.path.join(DIR_SCRIPT, "..", "5-dadosTratados", "dados_avancados_seguidores_enriquecido_bjjtocantins.csv")
 
 # ======================= CONFIGURAÇÕES PARA ANÁLISE E SEGMENTAÇÃO =======================
 # 1. Defina as colunas que você quer usar para criar as pastas e segmentar os arquivos CSV.

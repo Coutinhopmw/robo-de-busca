@@ -16,138 +16,94 @@ from webdriver_manager.chrome import ChromeDriverManager
 # --- CONFIGURAÇÕES ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Insira suas credenciais do Instagram
-INSTAGRAM_USERNAME = "orkestragestao"
-INSTAGRAM_PASSWORD = "Lc181340sl@?" # Substitua pela sua senha real
+INSTAGRAM_USERNAME = "proescola.com.br" # Substitua pelo seu usuário
+INSTAGRAM_PASSWORD = "Pro35c0l@2025" # Substitua pela sua senha
 
 # ============================ AÇÃO NECESSÁRIA AQUI (EDITAR) ============================
-# 1. Nome do arquivo CSV que contém a coluna 'username' com os perfis de destino.
-ARQUIVO_ENTRADA = "log_de_seguir.csv"
-
-# 2. Cole a URL completa do post que você deseja enviar.
-URL_DO_POST_A_ENVIAR = "https://www.instagram.com/p/DMYLKuFsJU9/"
-
-# 3. (Opcional) Adicione uma mensagem para ser enviada junto com o post. Deixe em branco ("") se não quiser.
-MENSAGEM_OPCIONAL = "Oi! Passando pra te mostrar algo que pode fazer total diferença pra você. É rápido e vale a pena conferir!💡🚀"
-
-
-# 4. Defina o número máximo de DMs para enviar nesta sessão para segurança.
-MAX_DMS_A_ENVIAR = 1
+ARQUIVO_ENTRADA = "Empresa__Comércio.csv"
+URL_DO_POST_A_ENVIAR = "https://www.instagram.com/p/DMsLiIEsLbH/" # Substitua por uma URL de post real
+MENSAGEM_OPCIONAL = "Olá! Vimos seu perfil e acreditamos que este conteúdo pode ser do seu interesse."
+MAX_DMS_POR_SESSAO = 1 # MANTENHA BAIXO PARA TESTES
 # =======================================================================================
 
-# Arquivo para registrar os envios e evitar duplicatas
 LOG_DE_ENVIO = "log_de_envio.csv"
 
 
 # --- FUNÇÕES ---
 
+def salvar_html_para_debug(driver, nome_arquivo):
+    """Salva o HTML da página atual para auxiliar na depuração."""
+    try:
+        caminho_completo = os.path.join(os.getcwd(), f"{nome_arquivo}.html")
+        with open(caminho_completo, 'w', encoding='utf-8') as f:
+            f.write(driver.page_source)
+        logging.info(f"💾 HTML de depuração salvo em: {caminho_completo}")
+    except Exception as e:
+        logging.error(f"   Falha ao salvar o arquivo HTML de depuração: {e}")
+
 def perform_login(driver, wait, username, password):
-    """Realiza o login na conta do Instagram."""
-    logging.info("🔑 Realizando login...")
+    logging.info("🔑 Iniciando processo de login...")
     driver.get("https://www.instagram.com/accounts/login/")
     try:
+        logging.info("   - Aguardando campo 'username'...")
         wait.until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(username)
+        logging.info("   - Preenchendo senha e pressionando ENTER...")
         driver.find_element(By.NAME, "password").send_keys(password + Keys.RETURN)
-        wait.until(EC.presence_of_element_located((By.XPATH, "//*[text()='Página inicial']")))
+        wait.until(EC.url_contains("instagram.com"))
         logging.info("✅ Login realizado com sucesso.")
-        time.sleep(random.uniform(3, 5))
-        try:
-            not_now_button = driver.find_element(By.XPATH, "//div[text()='Agora não']")
-            if not_now_button:
-                not_now_button.click()
-                logging.info("Pop-up 'Salvar informações de login' fechado.")
-                time.sleep(random.uniform(2, 4))
-        except NoSuchElementException:
-            pass
-
-        try:
-            not_now_button_notifications = driver.find_element(By.XPATH, "//button[text()='Agora não']")
-            if not_now_button_notifications:
-                not_now_button_notifications.click()
-                logging.info("Pop-up 'Ativar notificações' fechado.")
-                time.sleep(random.uniform(2, 3))
-        except NoSuchElementException:
-            pass
-
-    except TimeoutException:
-        logging.error("❌ Timeout: Não foi possível fazer o login.")
-        return False
+        
+        for i in range(2):
+            try:
+                logging.info(f"   - Procurando por pop-ups (tentativa {i+1}/2)...")
+                pop_up_button = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, "//*[text()='Agora não' or text()='Not Now' or text()='Dispensar']")))
+                pop_up_button.click()
+                logging.info("   - Pop-up de notificação/salvamento fechado.")
+                time.sleep(1)
+            except:
+                logging.info("   - Nenhum pop-up encontrado.")
+                break
     except Exception as e:
         logging.error(f"❌ Erro inesperado durante o login: {e}")
+        salvar_html_para_debug(driver, "erro_durante_login")
         return False
     return True
 
 def enviar_post_para_perfil(driver, wait, username, mensagem):
-    """Lógica super robusta para encontrar elementos e enviar o post."""
+    """Lógica detalhada para enviar o post para um único perfil."""
     try:
         logging.info(f"    Buscando destinatário: {username}...")
-        
-        # 1. Espera o modal de compartilhamento carregar e encontra a caixa de busca
-        wait.until(EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Compartilhar']")))
-        time.sleep(random.uniform(1.5, 2.5)) # Espera a animação do modal
-        
-        # Tenta encontrar a caixa de busca com diferentes seletores
-        search_box = None
-        selectors = [
-            "//div[@role='dialog']//input[@placeholder='Pesquisar...']",
-            "//div[@role='dialog']//input[@placeholder='Search...']",
-            "//div[@role='dialog']//input[@type='text']" # Opção mais genérica
-        ]
-        
-        for selector in selectors:
-            try:
-                search_box = WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.XPATH, selector)))
-                logging.info(f"      -> Caixa de pesquisa encontrada com o seletor: {selector}")
-                break # Sai do loop se encontrar
-            except TimeoutException:
-                continue # Tenta o próximo seletor
-        
-        if not search_box:
-            raise TimeoutException("Não foi possível encontrar a caixa de pesquisa no modal de envio.")
-
+        search_box = wait.until(EC.presence_of_element_located((By.XPATH, "//input[@name='search-box']")))
         search_box.send_keys(username)
-        time.sleep(random.uniform(4, 6)) # Espera crucial para os resultados da busca carregarem
+        logging.info(f"      -> Aguardando resultados para '{username}'...")
+        time.sleep(4)
 
-        # 2. Clica no checkbox ao lado do nome de usuário
-        seletor_destinatario = f"//div[@role='dialog']//span[text()='{username}']/ancestor::div[contains(@class, 'x1qjc9v5')][1]//div[@role='checkbox']"
+        seletor_destinatario = f"//span[text()='{username}']/ancestor::div[4]//div[@role='checkbox']"
         destinatario_checkbox = wait.until(EC.element_to_be_clickable((By.XPATH, seletor_destinatario)))
+        logging.info("      -> Checkbox do destinatário encontrado. Clicando...")
         destinatario_checkbox.click()
-        logging.info(f"      -> Destinatário '{username}' selecionado.")
-        time.sleep(random.uniform(1, 2))
+        logging.info("      -> Destinatário selecionado.")
 
-        # 3. Adiciona mensagem opcional, se houver
         if mensagem:
             try:
                 mensagem_box = driver.find_element(By.XPATH, "//textarea[@placeholder='Escreva uma mensagem...']")
                 mensagem_box.send_keys(mensagem)
-                logging.info("      -> Mensagem opcional adicionada.")
-                time.sleep(random.uniform(1, 2))
+                logging.info("      -> Mensagem opcional inserida.")
             except NoSuchElementException:
-                logging.warning("      -> Caixa de mensagem opcional não encontrada (pode não ser necessária).")
+                logging.warning("      -> Caixa de mensagem opcional não encontrada.")
 
-        # 4. Clicar em "Enviar"
+        logging.info("      -> Procurando botão 'Enviar'...")
         driver.find_element(By.XPATH, "//div[text()='Enviar']/ancestor::button").click()
         logging.info("      -> Botão 'Enviar' clicado.")
         
-        # Espera a confirmação de envio (o modal fecha)
         wait.until(EC.invisibility_of_element_located((By.XPATH, "//div[@aria-label='Compartilhar']")))
         return True
 
-    except TimeoutException as e:
-        logging.error(f"   ❌ Timeout: {e.msg.splitlines()[0]}")
-        try:
-            # Tenta fechar o modal para não travar o loop
-            close_button = driver.find_element(By.XPATH, "//div[@aria-label='Fechar']")
-            close_button.click()
-        except:
-            driver.refresh() # Último recurso
-        return False
     except Exception as e:
-        logging.error(f"   ❌ Erro inesperado ao tentar enviar para '{username}': {e}")
-        try:
-            close_button = driver.find_element(By.XPATH, "//div[@aria-label='Fechar']")
-            close_button.click()
-        except:
+        logging.error(f"   ❌ Erro ao tentar enviar para '{username}': {e}")
+        salvar_html_para_debug(driver, f"erro_modal_envio_{username}")
+        try: 
+            driver.find_element(By.XPATH, "//div[@aria-label='Fechar']/ancestor::button").click()
+        except: 
             driver.refresh()
         return False
 
@@ -162,26 +118,21 @@ if __name__ == "__main__":
         logging.error("O arquivo de entrada deve conter uma coluna chamada 'username'.")
         exit()
         
-    usernames_para_enviar = df_entrada['username'].dropna().unique().tolist()
+    usernames_para_enviar = df_entrada['username'].dropna().tolist()
     
     if os.path.exists(LOG_DE_ENVIO):
-        try:
-            df_log = pd.read_csv(LOG_DE_ENVIO)
-            enviados_anteriormente = df_log['username'].tolist()
-            usernames_para_enviar = [u for u in usernames_para_enviar if u not in enviados_anteriormente]
-            logging.info(f"Encontrado log de envios. {len(enviados_anteriormente)} perfis já receberam a DM. Restam {len(usernames_para_enviar)} perfis únicos na fila.")
-        except pd.errors.EmptyDataError:
-             logging.info(f"Arquivo de log '{LOG_DE_ENVIO}' está vazio. Começando do zero.")
+        df_log = pd.read_csv(LOG_DE_ENVIO)
+        enviados_anteriormente = df_log['username'].tolist()
+        usernames_para_enviar = [u for u in usernames_para_enviar if u not in enviados_anteriormente]
+        logging.info(f"Encontrado log de envios. {len(enviados_anteriormente)} perfis já receberam a DM. Restam {len(usernames_para_enviar)}.")
     else:
         pd.DataFrame(columns=['username', 'timestamp']).to_csv(LOG_DE_ENVIO, index=False)
-        logging.info(f"Arquivo de log '{LOG_DE_ENVIO}' criado.")
 
     if not usernames_para_enviar:
         logging.info("Nenhum novo perfil para enviar mensagem. Encerrando.")
         exit()
     
-    usernames_para_enviar = usernames_para_enviar[:MAX_DMS_A_ENVIAR]
-    logging.info(f"🎯 Sessão atual enviará no máximo {len(usernames_para_enviar)} DMs.")
+    usernames_para_enviar = usernames_para_enviar[:MAX_DMS_POR_SESSAO]
 
     driver = None
     try:
@@ -189,24 +140,30 @@ if __name__ == "__main__":
         options.add_argument("--start-maximized")
         options.add_experimental_option('excludeSwitches', ['enable-logging'])
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        wait = WebDriverWait(driver, 20)
+        wait = WebDriverWait(driver, 15)
         
         if not perform_login(driver, wait, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD):
             exit()
+        
+        driver.get(URL_DO_POST_A_ENVIAR)
+        logging.info(f"Navegando para o post a ser compartilhado: {URL_DO_POST_A_ENVIAR}")
+        time.sleep(3)
         
         enviados_nesta_sessao = 0
         for i, username in enumerate(usernames_para_enviar):
             logging.info(f"\n➡️  Processando {i+1}/{len(usernames_para_enviar)}: {username}")
             
-            driver.get(URL_DO_POST_A_ENVIAR)
-            
             try:
-                # Seletor ATUALIZADO e MAIS ROBUSTO para o ícone de compartilhamento
-                share_button_selector = "//*[name()='svg' and @aria-label='Compartilhar']/ancestor::div[@role='button']"
-                
-                share_button = wait.until(EC.element_to_be_clickable((By.XPATH, share_button_selector)))
-                share_button.click()
-                logging.info("Botão de compartilhar clicado.")
+                logging.info("   - Procurando ícone de compartilhar (avião de papel)...")
+                # ======================= SELETOR CORRIGIDO =======================
+                # O seletor foi ajustado para ser mais robusto, pegando o terceiro
+                # botão na barra de ações (Curtir, Comentar, Compartilhar).
+                share_icon = wait.until(EC.element_to_be_clickable(
+                    (By.XPATH, "(//section/span/div/div)[3]")
+                ))
+                # =================================================================
+                share_icon.click()
+                logging.info("   - Ícone de compartilhar clicado.")
 
                 if enviar_post_para_perfil(driver, wait, username, MENSAGEM_OPCIONAL):
                     logging.info(f"✅ Post enviado com sucesso para: {username}")
@@ -214,28 +171,26 @@ if __name__ == "__main__":
                     log_entry.to_csv(LOG_DE_ENVIO, mode='a', header=False, index=False)
                     enviados_nesta_sessao += 1
                 else:
-                    logging.error(f"❌ Falha ao enviar para: {username}")
+                    logging.error(f"❌ Falha no processo de envio para: {username}")
 
-                # Pausa longa e aleatória entre envios para segurança
-                pausa = random.uniform(25, 45)
+                pausa = random.uniform(60, 120)
                 logging.info(f"   ⏸️ Pausando por {pausa:.1f} segundos para segurança...")
                 time.sleep(pausa)
 
             except Exception as e:
-                logging.error(f"Ocorreu um erro no laço principal ao processar '{username}': {e}")
-                # Salva o HTML da página para análise em caso de erro
-                try:
-                    with open(f"erro_html_{username}.html", "w", encoding="utf-8") as f:
-                        f.write(driver.page_source)
-                    logging.info(f"HTML da página de erro salvo em erro_html_{username}.html")
-                except Exception as html_e:
-                    logging.error(f"Falha ao salvar HTML da página: {html_e}")
+                logging.error(f"Ocorreu um erro CRÍTICO no laço principal ao processar '{username}': {e}")
+                salvar_html_para_debug(driver, f"erro_principal_{username}")
+                logging.info("Tentando atualizar a página para se recuperar...")
+                driver.get(URL_DO_POST_A_ENVIAR)
+                time.sleep(5)
                 continue
 
         logging.info(f"\n🎉 Processo concluído! {enviados_nesta_sessao} DMs foram enviadas nesta sessão.")
 
     except Exception as final_e:
         logging.critical(f"❌ Um erro fatal ocorreu no fluxo principal: {final_e}")
+        if driver:
+            salvar_html_para_debug(driver, "erro_fatal")
     finally:
         if driver:
             driver.quit()
