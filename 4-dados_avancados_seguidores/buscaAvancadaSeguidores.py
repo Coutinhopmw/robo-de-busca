@@ -22,7 +22,7 @@ INSTAGRAM_PASSWORD = "Pro35c0l@2025"
 
 # --- CONFIGURAÇÃO DOS ARQUIVOS ---
 # ARQUIVO_ENTRADA = os.path.join("2-seguidores", "seguidores_enriquecido_clinicadraleticiakarolline.csv")
-ARQUIVO_ENTRADA = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "2-seguidores", "seguidores_enriquecido_bjjtocantins.csv"))
+ARQUIVO_ENTRADA = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "2-seguidores", "seguidores_enriquecido_ftbeachtennis.csv"))
 PASTA_SAIDA = "dadosAvancados"
 if not os.path.exists(PASTA_SAIDA):
     os.makedirs(PASTA_SAIDA, exist_ok=True)
