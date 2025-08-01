@@ -19,11 +19,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
 # PERFIL_ALVO = "titaniumparaiso" 
 
-INSTAGRAM_USERNAME = "proescola.com.br"
-INSTAGRAM_PASSWORD = "Pro35c0l@2025"
-# INSTAGRAM_USERNAME = "gabijardimsantos"
-# INSTAGRAM_PASSWORD = "Lc181340sl@?"
-PERFIL_ALVO = "dra.carolcabrall" 
+# INSTAGRAM_USERNAME = "proescola.com.br"
+# INSTAGRAM_PASSWORD = "Pro35c0l@2025"
+INSTAGRAM_USERNAME = "gabijardimsantos"
+INSTAGRAM_PASSWORD = "Lc181340sl@?"
+PERFIL_ALVO = "laizamassoneleonardo" 
 
 # Limites (ajuste conforme necessário)
 MAX_POSTS_PARA_ANALISAR = 200
@@ -106,8 +106,6 @@ def get_post_details(driver, wait):
 def scrape_likes_from_modal(driver, wait, max_likes):
     """Com o modal de curtidas aberto, rola e extrai os dados detalhados dos usuários."""
     likers = {}
-    
-    # Seletores definitivos baseados na análise dos arquivos HTML
     SELETOR_CONTAINER_SCROLL = (By.XPATH, "//div[contains(@class, 'x1kb659o')]//div[contains(@style, 'overflow')]")
     SELETOR_LINHA_USUARIO = (By.CSS_SELECTOR, "div.x9f619.x1ja2u2z.x78zum5.x2lah0s.x1n2onr6.x1qughib.x6s0dn4.xozqiw3.x1q0g3np")
 
@@ -117,26 +115,27 @@ def scrape_likes_from_modal(driver, wait, max_likes):
     except Exception as e:
         logging.error(f"      ❌ Não foi possível encontrar o container de rolagem de curtidas: {e}")
         return {}
-        
-    scrolls_sem_novos = 0
-    while len(likers) < max_likes and scrolls_sem_novos < 15:
+
+    tentativas_sem_novos = 0
+    total_anterior = 0
+    import pandas as pd
+    from datetime import datetime
+    # Recebe contexto do post para salvar incrementalmente
+    global data_post_global, texto_post_global, ARQUIVO_SAIDA_CURTIDAS
+    max_tentativas_sem_novos = 10
+    while len(likers) < max_likes and tentativas_sem_novos < max_tentativas_sem_novos:
         try:
-            driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", scroll_container)
-            time.sleep(2)
-            
             linhas_de_usuario = scroll_container.find_elements(*SELETOR_LINHA_USUARIO)
-            novos_encontrados = 0
-            
+            novos = 0
             for linha in linhas_de_usuario:
                 try:
                     username_link_element = linha.find_element(By.TAG_NAME, "a")
                     username = username_link_element.get_attribute('href').strip('/').split('/')[-1]
-                    if username in likers: continue
-
+                    if username in likers:
+                        continue
                     verificado = True if linha.find_elements(By.XPATH, ".//svg[@aria-label='Verificado']") else False
                     url_foto_perfil = linha.find_element(By.TAG_NAME, "img").get_attribute('src')
                     status_relacao = linha.find_element(By.TAG_NAME, "button").text
-
                     nome_completo = ""
                     spans = linha.find_elements(By.TAG_NAME, 'span')
                     textos = [s.text.strip() for s in spans if s.text.strip() and "·" not in s.text]
@@ -144,21 +143,35 @@ def scrape_likes_from_modal(driver, wait, max_likes):
                         nome_completo = textos[1]
                     elif len(textos) > 0 and textos[0].lower() != username.lower():
                         nome_completo = textos[0]
-                    
                     likers[username] = {"nome_completo": nome_completo, "verificado": verificado, "url_foto_perfil": url_foto_perfil, "status_relacao": status_relacao}
-                    novos_encontrados += 1
+                    # Salva incrementalmente no CSV
+                    dados_post = [{
+                        "data_post": data_post_global if 'data_post_global' in globals() else '',
+                        "texto_post": texto_post_global if 'texto_post_global' in globals() else '',
+                        "username_curtiu": username,
+                        "nome_completo_curtiu": nome_completo,
+                        "verificado": verificado,
+                        "url_foto_perfil": url_foto_perfil,
+                        "status_relacao": status_relacao
+                    }]
+                    df_post = pd.DataFrame(dados_post)
+                    df_post.to_csv(ARQUIVO_SAIDA_CURTIDAS, mode='a', header=False, index=False, encoding='utf-8')
+                    novos += 1
+                    if len(likers) >= max_likes:
+                        break
                 except Exception:
                     continue
-            
-            if novos_encontrados > 0:
+            if novos > 0:
                 logging.info(f"      ...coletadas {len(likers)} curtidas.")
-                scrolls_sem_novos = 0
+                tentativas_sem_novos = 0
             else:
-                scrolls_sem_novos += 1
+                tentativas_sem_novos += 1
+            # Scroll até o final do container
+            driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", scroll_container)
+            time.sleep(1)
         except Exception as e:
             logging.error(f"      ❌ Erro ao rolar ou coletar usuários: {e}")
             break
-    
     return likers
 
 def coletar_curtidas_de_posts(driver, wait, perfil_alvo, max_posts, max_curtidas):
@@ -178,6 +191,7 @@ def coletar_curtidas_de_posts(driver, wait, perfil_alvo, max_posts, max_curtidas
     if not os.path.exists(ARQUIVO_SAIDA_CURTIDAS):
         pd.DataFrame(columns=colunas).to_csv(ARQUIVO_SAIDA_CURTIDAS, index=False, encoding='utf-8')
 
+    global data_post_global, texto_post_global
     for i, post_url in enumerate(post_links):
         try:
             logging.info(f"\n➡️  Analisando Post {i+1}/{len(post_links)}")
@@ -186,26 +200,15 @@ def coletar_curtidas_de_posts(driver, wait, perfil_alvo, max_posts, max_curtidas
             data_post, texto_post = get_post_details(driver, wait)
             logging.info(f"   Data: {data_post} | Legenda: {texto_post[:30]}...")
 
+            # Define variáveis globais para uso incremental
+            data_post_global = data_post
+            texto_post_global = texto_post
+
+            wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, '/liked_by/')]"))).click()
             wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, '/liked_by/')]"))).click()
 
             likers = scrape_likes_from_modal(driver, wait, max_curtidas)
             logging.info(f"   ✅ Coletadas {len(likers)} curtidas para este post.")
-
-            # Salva incrementalmente no CSV
-            if likers:
-                dados_post = []
-                for username, detalhes in likers.items():
-                    dados_post.append({
-                        "data_post": data_post,
-                        "texto_post": texto_post,
-                        "username_curtiu": username,
-                        "nome_completo_curtiu": detalhes["nome_completo"],
-                        "verificado": detalhes["verificado"],
-                        "url_foto_perfil": detalhes["url_foto_perfil"],
-                        "status_relacao": detalhes["status_relacao"]
-                    })
-                df_post = pd.DataFrame(dados_post)
-                df_post.to_csv(ARQUIVO_SAIDA_CURTIDAS, mode='a', header=False, index=False, encoding='utf-8')
 
             try:
                 driver.find_element(By.XPATH, "//div[@role='dialog']//div[contains(@aria-label, 'Fechar')] | //div[@role='dialog']//button").click()
