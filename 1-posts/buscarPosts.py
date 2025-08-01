@@ -122,7 +122,9 @@ def scrape_likes_from_modal(driver, wait, max_likes):
     from datetime import datetime
     # Recebe contexto do post para salvar incrementalmente
     global data_post_global, texto_post_global, ARQUIVO_SAIDA_CURTIDAS
-    max_tentativas_sem_novos = 10
+    max_tentativas_sem_novos = 5  # Reduzido para 5 tentativas conforme solicitado
+    scroll_position = 0  # Posição atual do scroll
+    
     while len(likers) < max_likes and tentativas_sem_novos < max_tentativas_sem_novos:
         try:
             linhas_de_usuario = scroll_container.find_elements(*SELETOR_LINHA_USUARIO)
@@ -161,14 +163,18 @@ def scrape_likes_from_modal(driver, wait, max_likes):
                         break
                 except Exception:
                     continue
+            
             if novos > 0:
                 logging.info(f"      ...coletadas {len(likers)} curtidas.")
                 tentativas_sem_novos = 0
             else:
                 tentativas_sem_novos += 1
-            # Scroll até o final do container
-            driver.execute_script("arguments[0].scrollTop = arguments[0].scrollHeight", scroll_container)
-            time.sleep(1)
+                
+            # Rolagem suave de 20px por vez
+            scroll_position += 20
+            driver.execute_script("arguments[0].scrollTop = arguments[1]", scroll_container, scroll_position)
+            time.sleep(0.5)  # Tempo menor para rolagem mais fluida
+            
         except Exception as e:
             logging.error(f"      ❌ Erro ao rolar ou coletar usuários: {e}")
             break
