@@ -137,39 +137,94 @@ def analisar_duplicatas(caminho_arquivo, coluna_referencia='username_curtiu'):
 
 def main():
     """
-    Função principal para executar o tratamento
+    Função principal para processar múltiplos arquivos CSV, consolidar dados e salvar em um único CSV tratado.
     """
-    
+    import glob
+    from datetime import datetime
+
     # Configurações
-    arquivo_entrada = "curtidas_completo_laizamassoneleonardo.csv"
-    caminho_completo = os.path.join(os.path.dirname(__file__), arquivo_entrada)
-    
+    pasta_csvs = os.path.join(os.path.dirname(__file__), "dados_nao_tratados")
+    padrao_csvs = os.path.join(pasta_csvs, "*.csv")
+    arquivos_csv = glob.glob(padrao_csvs)
+    arquivo_saida = os.path.join(os.path.dirname(__file__), "curtidas_tratado_confresa_vila_rica_sao_felix_MT.csv")
+    data_leitura = datetime.now().strftime("%Y-%m-%d")
+
     print("="*60)
-    print("TRATAMENTO DE DADOS - CURTIDAS INSTAGRAM")
+    print("TRATAMENTO DE DADOS - CURTIDAS INSTAGRAM (MÚLTIPLOS ARQUIVOS)")
     print("="*60)
-    
-    # Verifica se o arquivo existe
-    if not os.path.exists(caminho_completo):
-        print(f"Erro: Arquivo não encontrado em {caminho_completo}")
+
+    if not arquivos_csv:
+        print("Nenhum arquivo CSV encontrado para processar.")
         return
-    
-    # Analisa duplicatas antes do tratamento
-    analisar_duplicatas(caminho_completo)
-    
-    # Remove duplicatas
-    df_tratado = remover_duplicatas_curtidas(caminho_completo)
-    
-    if df_tratado is not None:
-        # Salva arquivo tratado
-        caminho_salvo = salvar_arquivo_tratado(df_tratado, caminho_completo)
-        
-        if caminho_salvo:
-            print(f"\n=== RESUMO FINAL ===")
-            print(f"✅ Tratamento concluído com sucesso!")
-            print(f"📁 Arquivo original: {arquivo_entrada}")
-            print(f"📁 Arquivo tratado: {os.path.basename(caminho_salvo)}")
-            print(f"📊 Dados únicos por usuário mantidos")
-    
+
+    lista_dfs = []
+    for caminho_csv in arquivos_csv:
+        try:
+            df = pd.read_csv(caminho_csv)
+            # Renomeia colunas
+            if 'username_curtiu' in df.columns:
+                df = df.rename(columns={'username_curtiu': 'username'})
+            if 'nome_completo_curtiu' in df.columns:
+                df = df.rename(columns={'nome_completo_curtiu': 'nome_completo'})
+            # Remove colunas indesejadas
+            for col in ['data_post', 'texto_post']:
+                if col in df.columns:
+                    df = df.drop(columns=[col])
+
+            # Ajusta coluna de foto de perfil
+            if 'url_foto_perfil' in df.columns:
+                # Considera que se o valor não for vazio/nulo, tem foto de perfil
+                df['foto_perfil'] = df['url_foto_perfil'].apply(lambda x: 1 if pd.notnull(x) and str(x).strip() != '' else 0)
+                df = df.drop(columns=['url_foto_perfil'])
+
+            # Adiciona coluna de origem
+            df['arquivo_origem'] = os.path.basename(caminho_csv)
+            # Adiciona data da leitura
+            df['data_leitura'] = data_leitura
+            lista_dfs.append(df)
+        except Exception as e:
+            print(f"Erro ao processar {caminho_csv}: {e}")
+
+    if not lista_dfs:
+        print("Nenhum dado válido para consolidar.")
+        return
+
+    # Concatena todos os DataFrames
+    df_unificado = pd.concat(lista_dfs, ignore_index=True)
+
+    # Conta aparições por usuário
+    if 'username' in df_unificado.columns:
+        contagem = df_unificado['username'].value_counts()
+        df_unificado['quantidade_aparicoes'] = df_unificado['username'].map(contagem)
+    else:
+        print("Coluna 'username' não encontrada após renomeação. Abortando.")
+        return
+
+    # Remove duplicatas mantendo a primeira ocorrência de cada usuário
+    df_final = df_unificado.drop_duplicates(subset=['username'], keep='first')
+
+    # Se arquivo de saída já existe, anexa os novos dados sem sobrescrever
+    if os.path.exists(arquivo_saida):
+        try:
+            df_existente = pd.read_csv(arquivo_saida)
+            df_final = pd.concat([df_existente, df_final], ignore_index=True)
+            # Atualiza quantidade_aparicoes considerando o total consolidado
+            contagem_total = df_final['username'].value_counts()
+            df_final['quantidade_aparicoes'] = df_final['username'].map(contagem_total)
+            # Remove duplicatas novamente
+            df_final = df_final.drop_duplicates(subset=['username'], keep='first')
+        except Exception as e:
+            print(f"Erro ao ler arquivo de saída existente: {e}")
+
+    # Salva o DataFrame final
+    try:
+        df_final.to_csv(arquivo_saida, index=False, encoding='utf-8')
+        print(f"\n=== ARQUIVO UNIFICADO SALVO ===")
+        print(f"Arquivo consolidado salvo em: {arquivo_saida}")
+        print(f"Total de registros únicos: {len(df_final)}")
+    except Exception as e:
+        print(f"Erro ao salvar arquivo unificado: {e}")
+
     print("\n" + "="*60)
 
 if __name__ == "__main__":
