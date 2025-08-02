@@ -20,9 +20,7 @@ COLUNAS_PARA_SEGMENTAR = [
     'tipo_perfil',
     'estado',
     'cidade',
-    'eh_estudante',
-    'curso_inferido',
-    'area_profissional_inferida',
+    'estudante',
     'genero_inferido',
     'nivel_influencia'
 ]
@@ -44,8 +42,8 @@ ESTADOS = {'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas', 'BA'
 CIDADES_POR_ESTADO = { 'palmas': 'TO', 'gurupi': 'TO', 'araguaína': 'TO', 'porto nacional': 'TO', 'paraíso do tocantins': 'TO', 'goiânia': 'GO', 'brasilia': 'DF' }
 NOMES_MASCULINOS = ['josé', 'joão', 'antônio', 'francisco', 'carlos', 'paulo', 'pedro', 'lucas', 'luiz', 'marcos', 'luís', 'gabriel', 'rafael', 'daniel', 'marcelo', 'bruno', 'eduardo', 'felipe', 'andré', 'fernando', 'rodrigo', 'gustavo', 'guilherme', 'ricardo', 'tiago', 'sérgio', 'vinícius']
 NOMES_FEMININOS = ['maria', 'ana', 'francisca', 'antônia', 'adriana', 'juliana', 'márcia', 'fernanda', 'patrícia', 'aline', 'sandra', 'camila', 'amanda', 'bruna', 'jéssica', 'letícia', 'júlia', 'luciana', 'vanessa', 'mariana', 'gabriela', 'vera', 'vitória', 'larissa', 'cláudia', 'beatriz']
-PALAVRAS_CHAVE_ESTUDANTE = {"TERMOS_GENERICOS": ["estudante", "aluno", "aluna", "acadêmico", "cursando", "formando"], "INSTITUICOES": ["faculdade", "universidade", "escola", "instituto", "uf", "ue", "puc", "uft", "unitins", "ifto"], "CURSOS": ["direito", "medicina", "engenharia", "administração", "adm", "odontologia", "psicologia", "arquitetura", "contabilidade", "jornalismo", "marketing", "ti", "computação", "enfermagem", "farmácia", "fisioterapia", "nutrição", "pedagogia", "veterinária"], "PADROES_REGEX": [r"\dº\s?período", r"\d\s?semestre", r"turma\s?\d+"]}
-PALAVRAS_CHAVE_PROFISSAO = {"SAUDE": ["médico", "medica", "doutor", "doutora", "enfermeiro", "enfermeira", "fisioterapeuta", "nutricionista", "psicólogo", "psicóloga", "dentista", "farmacêutico", "farmacêutica", "veterinário", "veterinária"], "DIREITO": ["advogado", "advogada", "jurídico", "juiz", "juíza", "promotor", "promotora"], "ENGENHARIA": ["engenheiro", "engenheira", "arquiteto", "arquiteta"], "TI": ["desenvolvedor", "programador", "analista de sistemas", "especialista em ti", "cientista de dados"], "EDUCACAO": ["professor", "professora", "pedagogo", "pedagoga"], "NEGOCIOS": ["administrador", "administradora", "contador", "contadora", "empreendedor", "empresário", "empresária", "consultor", "consultora", "vendedor", "vendedora", "gerente"], "OUTROS": ["jornalista", "designer", "artista", "atleta", "chef", "cozinheiro", "cozinheira", "fotógrafo", "fotógrafa", "influenciador", "influenciadora"]}
+PALAVRAS_CHAVE_ESTUDANTE = {"TERMOS_GENERICOS": ['estudante', 'aluno', 'aluna', 'acadêmico', 'cursando', 'formando'], "INSTITUICOES": ['faculdade', 'universidade', 'escola', 'instituto', 'uf', 'ue', 'puc', 'uft', 'unitins', 'ifto'], "CURSOS": ['direito', 'medicina', 'engenharia', 'administração', 'adm'], "PADROES_REGEX": [r'\dº\s?período', r'\d\s?semestre', r'turma\s?\d+']}
+
 # =======================================================================================
 
 
@@ -106,30 +104,6 @@ def analisar_e_classificar(df):
         return "Não"
     df['eh_estudante'] = df.apply(identificar_estudante, axis=1)
     
-    def identificar_curso_e_profissao(row):
-        texto = f"{row.get('bio', '')} {row.get('categoria', '')}".lower()
-        curso = 'Não identificado'
-        profissao = 'Não identificado'
-
-        # Identificar Curso
-        for c in PALAVRAS_CHAVE_ESTUDANTE["CURSOS"]:
-            if re.search(r'\b' + c + r'\b', texto):
-                curso = c.title()
-                break
-
-        # Identificar Profissão
-        for area, profissoes in PALAVRAS_CHAVE_PROFISSAO.items():
-            for p in profissoes:
-                if re.search(r'\b' + p + r'\b', texto):
-                    profissao = p.title()
-                    break
-            if profissao != 'Não identificado':
-                break
-        
-        return curso, profissao
-
-    df[['curso_inferido', 'area_profissional_inferida']] = df.apply(identificar_curso_e_profissao, axis=1, result_type='expand')
-    
     def inferir_genero(row):
         primeiro_nome = str(row.get('nome_completo', '')).lower().split(' ')[0]
         if primeiro_nome in NOMES_FEMININOS: return "Feminino"
@@ -171,9 +145,6 @@ def salvar_segmentos(df, base_path, colunas_para_segmentar):
 
 # --- FLUXO PRINCIPAL ---
 if __name__ == "__main__":
-    # Ajusta o ARQUIVO_ENTRADA para o caminho correto do arquivo enviado pelo usuário
-    ARQUIVO_ENTRADA = "/home/ubuntu/upload/dados_avancados_seguidores_enriquecido_acipparaisocopy.csv"
-
     if not os.path.exists(ARQUIVO_ENTRADA):
         logging.error(f"❌ O arquivo de entrada '{ARQUIVO_ENTRADA}' não foi encontrado!")
         exit()
@@ -195,5 +166,3 @@ if __name__ == "__main__":
 
     except Exception as e:
         logging.critical(f"❌ Um erro inesperado ocorreu durante a análise: {e}")
-
-

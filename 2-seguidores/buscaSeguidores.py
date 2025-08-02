@@ -16,11 +16,14 @@ import os
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- SUAS CONFIGURAÇÕES ---
-INSTAGRAM_USERNAME = "proescola.com.br"
-INSTAGRAM_PASSWORD = "Pro35c0l@2025"
+# INSTAGRAM_USERNAME = "proescola.com.br"
+# INSTAGRAM_PASSWORD = "Pro35c0l@2025"
 # INSTAGRAM_USERNAME = "gabijardimsantos"
 # INSTAGRAM_PASSWORD = "Lc181340sl@?"
-PERFIL_ALVO = "dra.carolcabrall" 
+INSTAGRAM_USERNAME = "antoniocassiorodrigueslima"
+INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
+
+PERFIL_ALVO = "ciotocantins" 
 LIMITE_SEGUIDORES = float('inf') 
 # Nome do arquivo de saída atualizado para refletir o conteúdo
 # ARQUIVO_SAIDA_SEGUIDORES = f"seguidores_enriquecido_{PERFIL_ALVO}.csv"
