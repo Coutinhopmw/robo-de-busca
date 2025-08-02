@@ -11,8 +11,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Caminho absoluto do diretório do script
 DIR_SCRIPT = os.path.dirname(os.path.abspath(__file__))
 
-# Nome do arquivo CSV de entrada (gerado pelo script de coleta de dados avançados)
-ARQUIVO_ENTRADA = os.path.join(DIR_SCRIPT, "..", "5-dadosTratados", "dados_avancados_curtidas_completo_sebraeto.csv")
+# Nome do arquivo CSV de entrada (gerado pelo script de tratamento de dados avançados)
+ARQUIVO_ENTRADA = os.path.join(DIR_SCRIPT, "..", "5-dadosTratados", "dados_tratados_dados_avancados_seguidores_enriquecido_bjjtocantins.csv")
 
 # ======================= CONFIGURAÇÕES PARA ANÁLISE E SEGMENTAÇÃO =======================
 # 1. Defina as colunas que você quer usar para criar as pastas e segmentar os arquivos CSV.
@@ -24,7 +24,9 @@ COLUNAS_PARA_SEGMENTAR = [
     'curso_inferido',
     'area_profissional_inferida',
     'genero_inferido',
-    'nivel_influencia'
+    'nivel_influencia',
+    'profissao',
+    'instituicao_ensino'
 ]
 
 # 2. (Opcional) Personalize as listas de palavras-chave para refinar a precisão da análise.
@@ -89,6 +91,36 @@ def analisar_e_classificar(df):
         return cidade, estado
     df[['cidade', 'estado']] = df.apply(extrair_local, axis=1, result_type='expand')
 
+
+
+    """Aplica o pipeline completo de análise e classificação ao DataFrame."""
+    logging.info("Iniciando pipeline de análise e classificação...")
+    
+    # Sanitização básica
+    df.drop_duplicates(subset=['username'], keep='first', inplace=True)
+    for col in ['bio', 'categoria', 'nome_completo', 'endereco']:
+        if col in df.columns: df[col] = df[col].fillna('')
+
+    # Aplica análises de influência apenas se as colunas existirem
+    if 'n_seguidores' in df.columns:
+        df['n_seguidores_num'] = df['n_seguidores'].apply(converter_para_numero)
+        df['nivel_influencia'] = df['n_seguidores_num'].apply(lambda x: 'Iniciante' if x < 1000 else 'Nano' if x < 10000 else 'Micro' if x < 100000 else 'Médio' if x < 1000000 else 'Macro/Mega')
+    if 'n_seguindo' in df.columns:
+        df['n_seguindo_num'] = df['n_seguindo'].apply(converter_para_numero)
+
+    def extrair_local(row):
+        texto = f"{row.get('bio', '')} {row.get('nome_completo', '')}".lower()
+        cidade, estado = "", ""
+        for sigla in ESTADOS:
+            if re.search(r'\\b' + sigla.lower() + r'\\b', texto): estado = sigla; break
+        for cid in CAPITAIS_E_CIDADES_IMPORTANTES:
+            if cid in texto:
+                cidade = cid.title()
+                if not estado and cid in CIDADES_POR_ESTADO: estado = CIDADES_POR_ESTADO[cid]
+                break
+        return cidade, estado
+    df[['cidade', 'estado']] = df.apply(extrair_local, axis=1, result_type='expand')
+
     def classificar_tipo(row):
         score = 0
         texto = f"{row.get('categoria', '')} {row.get('bio', '')} {row.get('nome_completo', '')}".lower()
@@ -100,9 +132,9 @@ def analisar_e_classificar(df):
     def identificar_estudante(row):
         texto = f"{row.get('bio', '')} {row.get('categoria', '')}".lower()
         if any(re.search(p, texto) for p in PALAVRAS_CHAVE_ESTUDANTE["PADROES_REGEX"]): return "Sim"
-        if any(re.search(r'\b' + p + r'\b', texto) for p in PALAVRAS_CHAVE_ESTUDANTE["TERMOS_GENERICOS"]): return "Sim"
-        if any(re.search(r'\b' + p + r'\b', texto) for p in PALAVRAS_CHAVE_ESTUDANTE["INSTITUICOES"]): return "Sim"
-        if any(re.search(r'\b' + p + r'\b', texto) for p in PALAVRAS_CHAVE_ESTUDANTE["CURSOS"]): return "Sim"
+        if any(re.search(r'\\b' + p + r'\\b', texto) for p in PALAVRAS_CHAVE_ESTUDANTE["TERMOS_GENERICOS"]): return "Sim"
+        if any(re.search(r'\\b' + p + r'\\b', texto) for p in PALAVRAS_CHAVE_ESTUDANTE["INSTITUICOES"]): return "Sim"
+        if any(re.search(r'\\b' + p + r'\\b', texto) for p in PALAVRAS_CHAVE_ESTUDANTE["CURSOS"]): return "Sim"
         return "Não"
     df['eh_estudante'] = df.apply(identificar_estudante, axis=1)
     
@@ -130,6 +162,7 @@ def analisar_e_classificar(df):
 
     df[['curso_inferido', 'area_profissional_inferida']] = df.apply(identificar_curso_e_profissao, axis=1, result_type='expand')
     
+
     def inferir_genero(row):
         primeiro_nome = str(row.get('nome_completo', '')).lower().split(' ')[0]
         if primeiro_nome in NOMES_FEMININOS: return "Feminino"
@@ -137,38 +170,54 @@ def analisar_e_classificar(df):
         return "Indefinido"
     df['genero_inferido'] = df.apply(inferir_genero, axis=1)
 
+    # --- NOVO: Extração de profissão e instituição de ensino ---
+    # Lista de profissões comuns (pode ser expandida conforme necessário)
+    LISTA_PROFISSOES = [
+        'advogado', 'advogada', 'médico', 'médica', 'engenheiro', 'engenheira', 'professor', 'professora',
+        'arquiteto', 'arquiteta', 'designer', 'contador', 'contadora', 'nutricionista', 'psicólogo', 'psicóloga',
+        'dentista', 'enfermeiro', 'enfermeira', 'fisioterapeuta', 'veterinário', 'veterinária', 'administrador',
+        'administradora', 'empresário', 'empresária', 'coach', 'personal trainer', 'fotógrafo', 'fotógrafa',
+        'artista', 'cantor', 'cantora', 'ator', 'atriz', 'jornalista', 'publicitário', 'publicitária', 'analista',
+        'programador', 'programadora', 'desenvolvedor', 'desenvolvedora', 'cientista', 'pesquisador', 'pesquisadora',
+        'consultor', 'consultora', 'gerente', 'diretor', 'diretora', 'esteticista', 'manicure', 'maquiadora',
+        'barbeiro', 'cozinheiro', 'cozinheira', 'chefe', 'chef', 'motorista', 'vendedor', 'vendedora', 'corretor',
+        'corretora', 'biomédico', 'biomédica', 'farmacêutico', 'farmacêutica', 'fisiologista', 'coach', 'influencer',
+        'blogueiro', 'blogueira', 'youtuber', 'tiktoker', 'criador de conteúdo', 'criadora de conteúdo'
+    ]
+    # Lista de palavras-chave para instituições de ensino
+    LISTA_INSTITUICOES = [
+        'universidade', 'faculdade', 'instituto', 'escola', 'colégio', 'uf', 'ue', 'puc', 'uft', 'unitins', 'ifto',
+        'unip', 'unopar', 'uninter', 'unicesumar', 'unifeso', 'unifor', 'unb', 'usp', 'unicamp', 'ufrj', 'ufmg', 'ufba',
+        'ufpe', 'ufpr', 'ufsc', 'ufes', 'ufpa', 'ufc', 'ufal', 'ufma', 'ufpb', 'ufrn', 'ufrr', 'ufam', 'ufac', 'ufmt',
+        'ufms', 'ufpi', 'ufro', 'ufop', 'ufla', 'ufv', 'ufsj', 'ufjf', 'ufabc', 'ufscar', 'ufpel', 'ufsm', 'ufrgs',
+        'ufes', 'ufra', 'ufrb', 'ufersa', 'ufvjm', 'ufersa', 'ufca', 'ufape', 'ufersa', 'ufersa', 'if', 'ifsp', 'ifba',
+        'ifce', 'ifmg', 'ifpb', 'ifrn', 'ifrs', 'ifsc', 'ifpr', 'ifro', 'ifam', 'ifac', 'ifmt', 'ifms', 'ifpa', 'ifal',
+        'ifma', 'ifpi', 'ifto', 'ifap', 'ifrr', 'ifgoiano', 'ifg', 'ifnmg', 'ifes', 'ifes', 'ifb', 'ifc', 'iffar', 'ifrs',
+        'ifsp', 'ifbaiano', 'ifba', 'ifce', 'ifmg', 'ifpb', 'ifrn', 'ifrs', 'ifsc', 'ifpr', 'ifro', 'ifam', 'ifac', 'ifmt',
+        'ifms', 'ifpa', 'ifal', 'ifma', 'ifpi', 'ifto', 'ifap', 'ifrr', 'ifgoiano', 'ifg', 'ifnmg', 'ifes', 'ifes', 'ifb',
+        'ifc', 'iffar', 'ifrs', 'ifsp', 'ifbaiano', 'unitins', 'uft', 'unirg', 'ulbra', 'católica', 'mackenzie', 'senai', 'senac'
+    ]
+
+    def extrair_profissao(texto):
+        texto = texto.lower()
+        for prof in LISTA_PROFISSOES:
+            if re.search(r'\\b' + re.escape(prof) + r'\\b', texto):
+                return prof.title()
+        return ''
+
+    def extrair_instituicao(texto):
+        texto = texto.lower()
+        for inst in LISTA_INSTITUICOES:
+            if re.search(r'\\b' + re.escape(inst) + r'\\b', texto):
+                return inst.upper()
+        return ''
+
+    # Extrai profissão e instituição de ensino da bio/categoria
+    df['profissao'] = df.apply(lambda row: extrair_profissao(f"{row.get('bio', '')} {row.get('categoria', '')}"), axis=1)
+    df['instituicao_ensino'] = df.apply(lambda row: extrair_instituicao(f"{row.get('bio', '')} {row.get('categoria', '')}"), axis=1)
+
     logging.info("✅ Análise concluída.")
     return df
-
-def salvar_segmentos(df, base_path, colunas_para_segmentar):
-    """Salva o DataFrame em múltiplos arquivos CSV segmentados por colunas específicas."""
-    logging.info("Iniciando salvamento dos segmentos...")
-    for coluna in colunas_para_segmentar:
-        if coluna not in df.columns:
-            logging.warning(f"Coluna '{coluna}' não encontrada para segmentação. Pulando.")
-            continue
-        
-        # Agrupa o dataframe pelos valores únicos da coluna
-        grupos = df.groupby(coluna)
-        
-        for nome_grupo, df_grupo in grupos:
-            if pd.isna(nome_grupo) or not nome_grupo:
-                continue # Ignora grupos com nome vazio ou NaN
-            
-            # Limpa o nome do grupo para criar um nome de arquivo/pasta válido
-            nome_limpo = re.sub(r'[^\w\s-]', '', str(nome_grupo)).strip().replace(' ', '_')
-            
-            # Cria a pasta para a categoria (ex: /Tipo de Perfil/)
-            pasta_categoria = os.path.join(base_path, coluna.replace('_', ' ').title())
-            os.makedirs(pasta_categoria, exist_ok=True)
-            
-            # Define o caminho final do arquivo CSV
-            caminho_csv = os.path.join(pasta_categoria, f"{nome_limpo}.csv")
-            
-            logging.info(f"   - Salvando segmento: {caminho_csv} ({len(df_grupo)} registros)")
-            df_grupo.to_csv(caminho_csv, index=False, encoding='utf-8')
-    logging.info("✅ Salvamento dos segmentos concluído.")
-
 # --- FLUXO PRINCIPAL ---
 if __name__ == "__main__":
     # Ajusta o ARQUIVO_ENTRADA para o caminho correto do arquivo enviado pelo usuário
@@ -191,6 +240,18 @@ if __name__ == "__main__":
         logging.info(f"🎉 SUCESSO! O arquivo com a análise COMPLETA foi salvo em: {arquivo_completo_saida}")
 
         # Salva os arquivos segmentados na mesma pasta do script
+        def salvar_segmentos(df, dir_saida, colunas_para_segmentar):
+            """
+            Salva arquivos CSV segmentados por combinações únicas das colunas especificadas.
+            """
+            for _, grupo in df.groupby(colunas_para_segmentar):
+                # Cria um nome de arquivo baseado nos valores das colunas de segmentação
+                valores = [str(grupo.iloc[0][col]) if pd.notna(grupo.iloc[0][col]) and str(grupo.iloc[0][col]).strip() != '' else 'indefinido' for col in colunas_para_segmentar]
+                nome_arquivo = "segmento_" + "_".join([re.sub(r'\W+', '', v.lower().replace(' ', '_')) for v in valores]) + ".csv"
+                caminho_saida = os.path.join(dir_saida, nome_arquivo)
+                grupo.to_csv(caminho_saida, index=False, encoding='utf-8')
+                logging.info(f"Segmento salvo: {caminho_saida}")
+
         salvar_segmentos(df_analisado, DIR_SCRIPT, COLUNAS_PARA_SEGMENTAR)
 
     except Exception as e:

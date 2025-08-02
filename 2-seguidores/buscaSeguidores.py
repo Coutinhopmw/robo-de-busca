@@ -24,6 +24,7 @@ INSTAGRAM_USERNAME = "antoniocassiorodrigueslima"
 INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
 
 PERFIL_ALVO = "ciotocantins" 
+
 LIMITE_SEGUIDORES = float('inf') 
 # Nome do arquivo de saída atualizado para refletir o conteúdo
 # ARQUIVO_SAIDA_SEGUIDORES = f"seguidores_enriquecido_{PERFIL_ALVO}.csv"

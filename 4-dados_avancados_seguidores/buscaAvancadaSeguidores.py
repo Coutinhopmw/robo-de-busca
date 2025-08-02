@@ -21,9 +21,8 @@ INSTAGRAM_USERNAME = "proescola.com.br"
 INSTAGRAM_PASSWORD = "Pro35c0l@2025"
 
 # --- CONFIGURAÇÃO DOS ARQUIVOS ---
-DIR_SCRIPT = os.path.dirname(os.path.abspath(__file__))
-# Caminho absoluto para o arquivo de entrada
-ARQUIVO_ENTRADA = os.path.join(DIR_SCRIPT, "..", "2-seguidores", "seguidores_enriquecido_ciotocantins.csv")
+# ARQUIVO_ENTRADA = os.path.join("2-seguidores", "seguidores_enriquecido_clinicadraleticiakarolline.csv")
+ARQUIVO_ENTRADA = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "2-seguidores", "seguidores_enriquecido_ftbeachtennis.csv"))
 PASTA_SAIDA = "dadosAvancados"
 if not os.path.exists(PASTA_SAIDA):
     os.makedirs(PASTA_SAIDA, exist_ok=True)
