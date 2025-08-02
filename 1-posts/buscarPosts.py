@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # INSTAGRAM_PASSWORD = "Pro35c0l@2025"
 INSTAGRAM_USERNAME = "gabijardimsantos"
 INSTAGRAM_PASSWORD = "Lc181340sl@?"
-PERFIL_ALVO = "_mayaratenorio" 
+PERFIL_ALVO = "confresamtoficial" 
 
 # Limites (ajuste conforme necessário)
 MAX_POSTS_PARA_ANALISAR = 200
