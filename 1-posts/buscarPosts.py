@@ -17,20 +17,31 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # INSTAGRAM_USERNAME = "antoniocassiorodrigueslima@gmail.com"
 # INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
-# PERFIL_ALVO = "titaniumparaiso" 
 
-INSTAGRAM_USERNAME = "proescola.com.br"
-INSTAGRAM_PASSWORD = "Pro35c0l@2025"
-# INSTAGRAM_USERNAME = "gabijardimsantos"
+# INSTAGRAM_USERNAME = "proescola.com.br"
+# INSTAGRAM_PASSWORD = "Pro35c0l@2025"
+
+# INSTAGRAM_USERNAME = "anaflvasantos@gmail.com"
 # INSTAGRAM_PASSWORD = "Lc181340sl@?"
-PERFIL_ALVO = "cbtkd.oficial" 
+
+# INSTAGRAM_USERNAME = "orkestraerp"
+# INSTAGRAM_PASSWORD = "Lc181340sl@?"
+
+# Lista de perfis para análise sequencial (até 5 perfis)
+PERFIS_ALVO = [
+    "smsconfresa",
+    "clinicaimedconfresa",
+    "portoalegredonortemt",
+    "prefeituraportoalegredonorte",
+    "malureiscruz",
+    "erinaldo.gg",
+    "vilaclique",
+    "wemesleite",
+]
 
 # Limites (ajuste conforme necessário)
 MAX_POSTS_PARA_ANALISAR = 300
 MAX_CURTIDAS_POR_POST = float('inf') # Use float('inf') para pegar todos
-
-# Salva o arquivo de saída na mesma pasta do script
-ARQUIVO_SAIDA_CURTIDAS = os.path.join(os.path.dirname(__file__), f"curtidas_completo_{PERFIL_ALVO}.csv")
 
 
 # --- FUNÇÕES AUXILIARES ---
@@ -200,6 +211,9 @@ def scrape_likes_from_modal(driver, wait, max_likes):
 def coletar_curtidas_de_posts(driver, wait, perfil_alvo, max_posts, max_curtidas):
     """Função principal que orquestra todo o processo de coleta de curtidas."""
     
+    # Define o arquivo de saída específico para este perfil
+    arquivo_saida_curtidas = os.path.join(os.path.dirname(__file__), f"curtidas_completo_{perfil_alvo}.csv")
+    
     post_links = get_post_links(driver, wait, perfil_alvo, max_posts)
     if not post_links:
         return []
@@ -211,13 +225,15 @@ def coletar_curtidas_de_posts(driver, wait, perfil_alvo, max_posts, max_curtidas
     ]
 
     # Cria o arquivo CSV com cabeçalho antes de começar
-    if not os.path.exists(ARQUIVO_SAIDA_CURTIDAS):
-        pd.DataFrame(columns=colunas).to_csv(ARQUIVO_SAIDA_CURTIDAS, index=False, encoding='utf-8')
+    if not os.path.exists(arquivo_saida_curtidas):
+        pd.DataFrame(columns=colunas).to_csv(arquivo_saida_curtidas, index=False, encoding='utf-8')
 
-    global data_post_global, texto_post_global
+    global data_post_global, texto_post_global, ARQUIVO_SAIDA_CURTIDAS
+    ARQUIVO_SAIDA_CURTIDAS = arquivo_saida_curtidas  # Define globalmente para uso no scrape_likes_from_modal
+    
     for i, post_url in enumerate(post_links):
         try:
-            logging.info(f"\n➡️  Analisando Post {i+1}/{len(post_links)}")
+            logging.info(f"\n➡️  Analisando Post {i+1}/{len(post_links)} do perfil {perfil_alvo}")
             driver.get(post_url)
 
             data_post, texto_post = get_post_details(driver, wait)
@@ -316,6 +332,7 @@ def coletar_curtidas_de_posts(driver, wait, perfil_alvo, max_posts, max_curtidas
             logging.error(f"   ❌ Falha ao processar o post {post_url}. Erro: {e}")
             continue
 
+    logging.info(f"✅ Finalizada a coleta do perfil {perfil_alvo}! Dados salvos em {arquivo_saida_curtidas}")
     # Não retorna mais os dados, pois já foram salvos incrementalmente
     return None
 
@@ -330,8 +347,26 @@ if __name__ == "__main__":
         wait = WebDriverWait(driver, 10)  # Aumentado de 2 para 10 segundos
         
         if perform_login(driver, wait, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD):
-            coletar_curtidas_de_posts(driver, wait, PERFIL_ALVO, MAX_POSTS_PARA_ANALISAR, MAX_CURTIDAS_POR_POST)
-            logging.info(f"\n✅ Processo finalizado! Os dados de curtidas foram salvos incrementalmente em {ARQUIVO_SAIDA_CURTIDAS}")
+            logging.info(f"\n🚀 Iniciando coleta sequencial de {len(PERFIS_ALVO)} perfis...")
+            
+            for i, perfil_atual in enumerate(PERFIS_ALVO, 1):
+                logging.info(f"\n📊 === PERFIL {i}/{len(PERFIS_ALVO)}: @{perfil_atual} ===")
+                
+                try:
+                    coletar_curtidas_de_posts(driver, wait, perfil_atual, MAX_POSTS_PARA_ANALISAR, MAX_CURTIDAS_POR_POST)
+                    logging.info(f"✅ Perfil @{perfil_atual} concluído com sucesso!")
+                    
+                    # Pausa entre perfis para evitar sobrecarga
+                    if i < len(PERFIS_ALVO):
+                        logging.info("⏳ Aguardando 10 segundos antes do próximo perfil...")
+                        time.sleep(10)
+                        
+                except Exception as e:
+                    logging.error(f"❌ Erro ao processar perfil @{perfil_atual}: {e}")
+                    logging.info("➡️ Continuando para o próximo perfil...")
+                    continue
+            
+            logging.info(f"\n🎉 PROCESSO COMPLETAMENTE FINALIZADO! Todos os {len(PERFIS_ALVO)} perfis foram processados.")
 
     except Exception as final_e:
         logging.critical(f"❌ Um erro inesperado ocorreu no fluxo principal: {final_e}")
