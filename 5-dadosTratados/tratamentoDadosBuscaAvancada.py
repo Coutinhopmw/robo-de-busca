@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 DIR_DADOS_AVANCADOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '4-dados_avancados_seguidores')
 
 # Nome do arquivo CSV de entrada (ajustado para o nome correto da pasta)
-ARQUIVO_ENTRADA = os.path.join(DIR_DADOS_AVANCADOS, "dados_avancados_seguidores_enriquecido_bjjtocantins.csv")
+ARQUIVO_ENTRADA = os.path.join(DIR_DADOS_AVANCADOS, "dados_avancados_curtidas_tratado_confresa_vila_rica_sao_felix_MT.csv")
 
 # Nome do arquivo de saída: dadosTratados + nome do csv lido (salva na mesma pasta do script)
 NOME_ARQUIVO_ENTRADA = os.path.basename(ARQUIVO_ENTRADA)
@@ -19,20 +19,29 @@ ARQUIVO_SAIDA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dados_
 # --- FUNÇÕES AUXILIARES DE LIMPEZA ---
 
 def converter_para_numero(valor):
-    if pd.isna(valor): return 0
-    if isinstance(valor, (int, float)): return int(valor)
-    if not isinstance(valor, str): return 0
+    """Converte valores para números, tratando formatos K/M."""
+    if pd.isna(valor): 
+        return 0
+    if isinstance(valor, (int, float)): 
+        return int(valor)
+    if not isinstance(valor, str): 
+        return 0
     
     valor = valor.lower().strip().replace('.', '').replace(',', '.')
-    if 'k' in valor:
-        return int(float(valor.replace('k', '')) * 1000)
-    if 'm' in valor:
-        return int(float(valor.replace('m', '')) * 1000000)
     
-    valor_numerico = re.sub(r'\D', '', valor)
-    return int(valor_numerico) if valor_numerico else 0
+    try:
+        if 'k' in valor:
+            return int(float(valor.replace('k', '')) * 1000)
+        if 'm' in valor:
+            return int(float(valor.replace('m', '')) * 1000000)
+        
+        valor_numerico = re.sub(r'\D', '', valor)
+        return int(valor_numerico) if valor_numerico else 0
+    except (ValueError, TypeError):
+        return 0
 
 def remover_emojis(texto):
+    """Remove emojis do texto."""
     if not isinstance(texto, str):
         return texto
     
@@ -43,9 +52,10 @@ def remover_emojis(texto):
         u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
         u"\U00002702-\U000027B0"
         u"\U000024C2-\U0001F251"
-        u"\U0001FA70-\U0001FAFF"  # Symbols & Pictographs Extended-A (inclui 🫀)
+        u"\U0001FA70-\U0001FAFF"  # Symbols & Pictographs Extended-A
         u"\U0001F900-\U0001F9FF"  # Supplemental Symbols and Pictographs
         "]+", flags=re.UNICODE)
+    
     texto_limpo = emoji_pattern.sub(r'', texto)
     return re.sub(r'\s+', ' ', texto_limpo).strip()
 
@@ -241,13 +251,12 @@ if __name__ == "__main__":
         pasta_saida = os.path.dirname(ARQUIVO_SAIDA)
         if not os.path.exists(pasta_saida):
             os.makedirs(pasta_saida)
+        
         dataframe_limpo.to_csv(ARQUIVO_SAIDA, index=False, encoding='utf-8')
 
         logging.info("="*60)
         logging.info(f"🎉 SUCESSO! O arquivo com os dados tratados foi salvo em:")
         logging.info(f"   👉 {ARQUIVO_SAIDA}")
-        logging.info(f"   Total de perfis únicos e limpos: {len(dataframe_limpo)}")
-        logging.info("="*60)
         logging.info(f"   Total de perfis únicos e limpos: {len(dataframe_limpo)}")
         logging.info("="*60)
 

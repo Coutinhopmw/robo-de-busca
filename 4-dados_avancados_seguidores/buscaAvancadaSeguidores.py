@@ -20,9 +20,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 INSTAGRAM_USERNAME = "proescola.com.br"
 INSTAGRAM_PASSWORD = "Pro35c0l@2025"
 
+# INSTAGRAM_USERNAME = "coutinho_tkd"
+# INSTAGRAM_PASSWORD = "Lc181340sl@"
+
+
+
 # --- CONFIGURAÇÃO DOS ARQUIVOS ---
 # ARQUIVO_ENTRADA = os.path.join("2-seguidores", "seguidores_enriquecido_clinicadraleticiakarolline.csv")
-ARQUIVO_ENTRADA = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "2-seguidores", "seguidores_enriquecido_ftbeachtennis.csv"))
+ARQUIVO_ENTRADA = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "1-posts", "curtidas_tratado_confresa_vila_rica_sao_felix_MT.csv"))
 PASTA_SAIDA = "dadosAvancados"
 if not os.path.exists(PASTA_SAIDA):
     os.makedirs(PASTA_SAIDA, exist_ok=True)
@@ -40,6 +45,11 @@ def perform_login(driver, wait, username, password):
         driver.find_element(By.NAME, "password").send_keys(password + Keys.RETURN)
         wait.until(EC.url_contains("instagram.com"))
         logging.info("✅ Login realizado com sucesso.")
+        
+        # Pausa de 1 minuto após o login
+        logging.info("⏸️ Aguardando 1 minuto após o login...")
+        time.sleep(60)
+        
         try:
             WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Agora não' or text()='Not Now']"))).click()
         except: pass
@@ -68,7 +78,9 @@ def extrair_dados_avancados_perfil(driver, wait, username):
     
     dados = {
         "bio": "", "n_publicacoes": "0", "n_seguidores": "0", "n_seguindo": "0",
-        "link_externo": "", "verificado": False, "status_conta": "Pública"
+        "link_externo": "", "verificado": False, "status_conta": "Pública",
+        "foto_perfil": 0, "categoria": "", "nome_completo": "", "conta_comercial": False,
+        "destaque_stories": 0, "posts_recentes": 0, "engajamento_medio": "0"
     }
 
     try:
@@ -88,16 +100,62 @@ def extrair_dados_avancados_perfil(driver, wait, username):
         except Exception:
             logging.warning(f"   ⚠️ Não foi possível extrair os números (publicações, seguidores) de '{username}'.")
 
-        # 2. Verifica se o perfil tem o selo de verificado (LÓGICA MANTIDA CONFORME SEU PEDIDO)
+        # 2. Verifica se o perfil tem o selo de verificado
         try:
             header.find_element(By.XPATH, ".//svg[@aria-label='Verificado']")
             dados['verificado'] = True
         except NoSuchElementException:
             dados['verificado'] = False
+
+        # 3. Detecta se tem foto de perfil (não é a imagem padrão)
+        try:
+            img_perfil = header.find_element(By.XPATH, ".//img[contains(@alt, 'foto do perfil') or contains(@alt, 'profile picture')]")
+            src_img = img_perfil.get_attribute('src')
+            # Se não for a imagem padrão do Instagram, tem foto personalizada
+            if src_img and 'default_avatar' not in src_img and 'anonymous_profile' not in src_img:
+                dados['foto_perfil'] = 1
+        except Exception:
+            dados['foto_perfil'] = 0
+
+        # 4. Extrai nome completo (diferente do username)
+        try:
+            nome_elem = header.find_element(By.XPATH, ".//h2|.//span[contains(@class, 'title')]")
+            if nome_elem.text and nome_elem.text != username:
+                dados['nome_completo'] = nome_elem.text.strip()
+        except Exception:
+            pass
+
+        # 5. Detecta se é conta comercial/profissional
+        try:
+            categoria_elem = header.find_element(By.XPATH, ".//div[contains(text(), 'Página ·') or contains(text(), 'Empresa')]")
+            dados['conta_comercial'] = True
+            dados['categoria'] = categoria_elem.text.strip()
+        except Exception:
+            try:
+                # Busca por indicadores de conta comercial
+                comercial_indicators = header.find_elements(By.XPATH, ".//button[contains(text(), 'Contato') or contains(text(), 'Email')]")
+                if comercial_indicators:
+                    dados['conta_comercial'] = True
+            except Exception:
+                pass
+
+        # 6. Conta destaques nos stories
+        try:
+            destaques = driver.find_elements(By.XPATH, "//div[contains(@class, 'highlight')]//img")
+            dados['destaque_stories'] = len(destaques)
+        except Exception:
+            dados['destaque_stories'] = 0
+
+        # 7. Conta posts recentes visíveis
+        try:
+            posts_grid = driver.find_elements(By.XPATH, "//article//a[contains(@href, '/p/')]")
+            dados['posts_recentes'] = min(len(posts_grid), 12)  # Máximo 12 posts visíveis
+        except Exception:
+            dados['posts_recentes'] = 0
         
 
 
-        # 3. Extrai a biografia completa e o link externo de forma robusta
+        # 8. Extrai a biografia completa e o link externo de forma robusta
         try:
             textos_bio = []
             link_externo = ""
@@ -191,7 +249,7 @@ if __name__ == "__main__":
         exit()
 
     usernames_para_buscar = df_entrada['username'].tolist()
-    colunas_finais = list(df_entrada.columns) + ["bio", "n_publicacoes", "n_seguidores", "n_seguindo", "link_externo", "verificado", "status_conta"]
+    colunas_finais = list(df_entrada.columns) + ["bio", "n_publicacoes", "n_seguidores", "n_seguindo", "link_externo", "verificado", "status_conta", "foto_perfil", "categoria", "nome_completo", "conta_comercial", "destaque_stories", "posts_recentes", "engajamento_medio"]
 
     if os.path.exists(ARQUIVO_SAIDA):
         logging.info("Encontrado arquivo de progresso. Continuando de onde parou...")
@@ -222,17 +280,34 @@ if __name__ == "__main__":
         for i, username in enumerate(usernames_para_buscar):
             logging.info(f"➡️  Processando perfil {i+1}/{len(usernames_para_buscar)}: {username}")
             
-            dados_avancados = extrair_dados_avancados_perfil(driver, wait, username)
-            
-            dados_originais = df_entrada[df_entrada['username'] == username].to_dict('records')[0]
-            registro_completo = {**dados_originais, **dados_avancados}
+            try:
+                dados_avancados = extrair_dados_avancados_perfil(driver, wait, username)
+                
+                dados_originais = df_entrada[df_entrada['username'] == username].to_dict('records')[0]
+                registro_completo = {**dados_originais, **dados_avancados}
 
-            df_para_salvar = pd.DataFrame([registro_completo])
-            df_para_salvar = df_para_salvar.reindex(columns=colunas_finais)
-            df_para_salvar.to_csv(ARQUIVO_SAIDA, mode='a', header=False, index=False, encoding='utf-8')
-            logging.info(f"✅ Dados de '{username}' salvos no CSV.")
-            
-            total_processados_sessao += 1
+                # Salva imediatamente após coletar os dados
+                df_para_salvar = pd.DataFrame([registro_completo])
+                df_para_salvar = df_para_salvar.reindex(columns=colunas_finais)
+                df_para_salvar.to_csv(ARQUIVO_SAIDA, mode='a', header=False, index=False, encoding='utf-8')
+                logging.info(f"✅ Dados de '{username}' salvos no CSV imediatamente.")
+                
+                total_processados_sessao += 1
+                
+            except Exception as e:
+                logging.error(f"❌ Erro ao processar '{username}': {e}")
+                # Salva mesmo com erro para manter o progresso
+                dados_erro = {col: "" for col in colunas_finais}
+                dados_originais = df_entrada[df_entrada['username'] == username].to_dict('records')[0]
+                for key, value in dados_originais.items():
+                    if key in dados_erro:
+                        dados_erro[key] = value
+                dados_erro['status_conta'] = "Erro de processamento"
+                
+                df_erro = pd.DataFrame([dados_erro])
+                df_erro = df_erro.reindex(columns=colunas_finais)
+                df_erro.to_csv(ARQUIVO_SAIDA, mode='a', header=False, index=False, encoding='utf-8')
+                logging.info(f"⚠️ Dados de erro para '{username}' salvos no CSV.")
             
             pausa = random.uniform(8, 15)
             logging.info(f"   ⏸️ Pausando por {pausa:.1f} segundos...")
