@@ -28,7 +28,7 @@ MAX_SEGUIR_SESSAO = 5000
 
 # 3. Defina o intervalo de tempo em segundos para a pausa entre as ações de seguir.
 PAUSA_MINIMA_SEGUNDOS = 60  # 1 minuto
-PAUSA_MAXIMA_SEGUNDOS = 240  # 4 minutos
+PAUSA_MAXIMA_SEGUNDOS = 120  # 2 minutos
 # =======================================================================================
 
 # Arquivo para registrar os perfis já seguidos
