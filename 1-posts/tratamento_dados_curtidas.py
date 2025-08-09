@@ -146,7 +146,7 @@ def main():
     pasta_csvs = os.path.join(os.path.dirname(__file__), "dados_nao_tratados")
     padrao_csvs = os.path.join(pasta_csvs, "*.csv")
     arquivos_csv = glob.glob(padrao_csvs)
-    arquivo_saida = os.path.join(os.path.dirname(__file__), "curtidas_tratado_confresa_vila_rica_sao_felix_MT.csv")
+    arquivo_saida = os.path.join(os.path.dirname(__file__), "curtidas_completo_cbtkd.oficial.csv")
     data_leitura = datetime.now().strftime("%Y-%m-%d")
 
     print("="*60)
