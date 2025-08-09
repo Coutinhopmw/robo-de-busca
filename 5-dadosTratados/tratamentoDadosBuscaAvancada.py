@@ -10,7 +10,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 DIR_DADOS_AVANCADOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '4-dados_avancados_seguidores')
 
 # Nome do arquivo CSV de entrada (ajustado para o nome correto da pasta)
-ARQUIVO_ENTRADA = os.path.join(DIR_DADOS_AVANCADOS, "dados_avancados_curtidas_tratado_confresa_vila_rica_sao_felix_MT.csv")
+
+ARQUIVO_ENTRADA = os.path.join(DIR_DADOS_AVANCADOS, "dados_avancados_curtidas_completo_cbtkd.oficial.csv")
 
 # Nome do arquivo de saída: dadosTratados + nome do csv lido (salva na mesma pasta do script)
 NOME_ARQUIVO_ENTRADA = os.path.basename(ARQUIVO_ENTRADA)
