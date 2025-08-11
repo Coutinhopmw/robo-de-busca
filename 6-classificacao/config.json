@@ -1,0 +1,37 @@
+{
+  "arquivo_entrada": "dados_avancados_curtidas_completo_sebraeto.csv",
+  "colunas_segmentacao": [
+    "tipo_perfil",
+    "estado", 
+    "cidade",
+    "eh_estudante",
+    "genero_inferido",
+    "nivel_influencia"
+  ],
+  "palavras_chave_empresa": [
+    "salão", "beleza", "estética", "barbearia", "loja", "restaurante",
+    "delivery", "oficial", "store", "shop", "boutique", "studio",
+    "clínica", "consultório", "agência", "serviços", "encomendas",
+    "pedidos", "agendamento", "orçamento", "atacado", "varejo",
+    "imóveis", "advocacia", "contabilidade", "empresa", "corporativo",
+    "negócios", "ecommerce", "marketplace", "consultoria", "academia", "escola"
+  ],
+  "palavras_chave_pessoa": [
+    "blogueira", "blogger", "influencer", "criador de conteúdo",
+    "atleta", "artista", "pessoal", "public figure", "figura pública",
+    "digital creator", "modelo", "creator", "youtuber", "tiktoker"
+  ],
+  "thresholds": {
+    "influencia": {
+      "iniciante": 1000,
+      "nano": 10000,
+      "micro": 100000,
+      "medio": 1000000
+    }
+  },
+  "configuracoes_processamento": {
+    "chunk_size": 10000,
+    "usar_cache": true,
+    "salvar_backup": true
+  }
+}
