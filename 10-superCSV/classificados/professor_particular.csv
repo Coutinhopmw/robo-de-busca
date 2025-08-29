@@ -1,0 +1,17 @@
+username,nome_completo,verificado,status_relacao,foto_perfil,arquivo_origem,data_leitura,quantidade_aparicoes,classe
+professorspartacus,professorspartacus,False,Seguir,1,curtidas_completo_acipparaiso.csv,2025-08-28,3,professor_particular
+professorflavioeliziario,professorflavioeliziario,False,Seguir,1,curtidas_completo_acipparaiso.csv,2025-08-28,3,professor_particular
+professor_eric0,professor_eric0,False,Seguir,1,curtidas_completo_cbtkd.oficial.csv,2025-08-28,1,professor_particular
+andrelimaprofessor,andrelimaprofessor,False,Seguir,1,curtidas_completo_cbtkd.oficial.csv,2025-08-28,1,professor_particular
+professora_ed.fisicaalinny,professora_ed.fisicaalinny,False,Seguir,1,curtidas_completo_cbtkd.oficial.csv,2025-08-28,1,professor_particular
+professorpabloed,professorpabloed,False,Seguir,1,curtidas_completo_cbtkd.oficial.csv,2025-08-28,1,professor_particular
+professora_amalia,,False,,1,curtidas_completo_cbtkd.oficial.csv,2025-08-28,1,professor_particular
+robsoncarlosprofessor,robsoncarlosprofessor,False,Seguir,1,curtidas_completo_clinicadraleticiakarolline.csv,2025-08-28,1,professor_particular
+professor.romaro,professor.romaro,False,Seguir,1,curtidas_completo_sebraeto.csv,2025-08-28,2,professor_particular
+professora_mariilia,professora_mariilia,False,Seguir,1,curtidas_completo_sebraeto.csv,2025-08-28,2,professor_particular
+lidianeprofessora,lidianeprofessora,False,Seguir,1,curtidas_completo_sebraeto.csv,2025-08-28,5,professor_particular
+professora_marifontao,professora_marifontao,False,Seguir,1,curtidas_tratado_confresa_vila_rica_sao_felix_MT.csv,2025-08-28,1,professor_particular
+professoralucimeiree,professoralucimeiree,False,Seguir,1,curtidas_tratado_confresa_vila_rica_sao_felix_MT.csv,2025-08-28,1,professor_particular
+professor.ozias,Professor.Ozias,False,Seguir,1,dados_avancados_seguidores_enriquecido_acipparaiso copy.csv,2025-08-28,4,professor_particular
+professora_elisangelabie,professora_elisangelabie,False,Seguir,1,dados_avancados_seguidores_enriquecido_edianemarinho_.csv,2025-08-28,2,professor_particular
+professoraevalima,professoraevalima,False,Seguir,1,seguidores_enriquecido_edianemarinho_.csv,2025-08-28,1,professor_particular

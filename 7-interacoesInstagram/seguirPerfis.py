@@ -19,6 +19,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 INSTAGRAM_USERNAME = "orkestragestao"
 INSTAGRAM_PASSWORD = "Lc181340sl@?" 
 
+# INSTAGRAM_USERNAME = "proescola.com.br"
+# INSTAGRAM_PASSWORD = "Pro35c0l@2025"
+
+
 # ============================ AÇÃO NECESSÁRIA AQUI (EDITAR) ============================
 # 1. Nome do arquivo CSV que contém a coluna 'username'.
 ARQUIVO_ENTRADA = "Empresa__Comércio.csv" # Exemplo

@@ -1,0 +1,10 @@
+username,nome_completo,verificado,status_relacao,foto_perfil,arquivo_origem,data_leitura,quantidade_aparicoes,classe
+dentlineclinicaodontologica,dentlineclinicaodontologica,False,Seguir,1,curtidas_completo_acipparaiso.csv,2025-08-28,1,dentista
+caroldentistafit,caroldentistafit,False,Seguir,1,curtidas_completo_dra.carolcabrall.csv,2025-08-28,2,dentista
+clinicaoiodontologia,clinicaoiodontologia,False,Seguir,1,curtidas_completo_dra.carolcabrall.csv,2025-08-28,2,dentista
+dentistacaldeira,dentistacaldeira,False,Seguir,1,curtidas_tratado_confresa_vila_rica_sao_felix_MT.csv,2025-08-28,1,dentista
+finottiodontologiacfs,finottiodontologiacfs,False,Seguir,1,curtidas_tratado_confresa_vila_rica_sao_felix_MT.csv,2025-08-28,1,dentista
+cirurgiadentista_taina,Cirurgiadentista_Taina,False,Seguir,1,dados_avancados_seguidores_enriquecido_clinicadraleticiakarolline.csv,2025-08-28,3,dentista
+dracaroldentista,Dracaroldentista,False,Seguir,1,dados_avancados_seguidores_enriquecido_clinicadraleticiakarolline.csv,2025-08-28,2,dentista
+draelaine_dentista,draelaine_dentista,False,Seguir,1,seguidores_enriquecido_implantus.co.csv,2025-08-28,1,dentista
+karinemaiaodontologia,karinemaiaodontologia,False,Seguir,1,seguidores_enriquecido_implantus.co.csv,2025-08-28,1,dentista
