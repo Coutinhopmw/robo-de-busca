@@ -17,20 +17,24 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # INSTAGRAM_USERNAME = "antoniocassiorodrigueslima@gmail.com"
 # INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
-# PERFIL_ALVO = "titaniumparaiso" 
 
 # INSTAGRAM_USERNAME = "proescola.com.br"
 # INSTAGRAM_PASSWORD = "Pro35c0l@2025"
-INSTAGRAM_USERNAME = "gabijardimsantos"
+
+INSTAGRAM_USERNAME = "anaflvasantos@gmail.com"
 INSTAGRAM_PASSWORD = "Lc181340sl@?"
-PERFIL_ALVO = "confresamtoficial" 
+
+# INSTAGRAM_USERNAME = "orkestraerp"
+# INSTAGRAM_PASSWORD = "Lc181340sl@?"
+
+# Lista de perfis para análise sequencial (até 5 perfis)
+PERFIS_ALVO = [
+    "tocabarbershop_barbearia"
+]
 
 # Limites (ajuste conforme necessário)
-MAX_POSTS_PARA_ANALISAR = 200
+MAX_POSTS_PARA_ANALISAR = 300
 MAX_CURTIDAS_POR_POST = float('inf') # Use float('inf') para pegar todos
-
-# Salva o arquivo de saída na mesma pasta do script
-ARQUIVO_SAIDA_CURTIDAS = os.path.join(os.path.dirname(__file__), f"curtidas_completo_{PERFIL_ALVO}.csv")
 
 
 # --- FUNÇÕES AUXILIARES ---
@@ -106,15 +110,32 @@ def get_post_details(driver, wait):
 def scrape_likes_from_modal(driver, wait, max_likes):
     """Com o modal de curtidas aberto, rola e extrai os dados detalhados dos usuários."""
     likers = {}
-    SELETOR_CONTAINER_SCROLL = (By.XPATH, "//div[contains(@class, 'x1kb659o')]//div[contains(@style, 'overflow')]")
+    
+    # Múltiplos seletores para o container de scroll (mais robustos)
+    SELETORES_CONTAINER_SCROLL = [
+        (By.XPATH, "//div[contains(@class, 'x1kb659o')]//div[contains(@style, 'overflow')]"),
+        (By.XPATH, "//div[@role='dialog']//div[contains(@style, 'overflow')]"),
+        (By.XPATH, "//div[contains(@class, '_aano')]"),
+        (By.CSS_SELECTOR, "div[style*='overflow']:not([style*='hidden'])"),
+    ]
+    
     SELETOR_LINHA_USUARIO = (By.CSS_SELECTOR, "div.x9f619.x1ja2u2z.x78zum5.x2lah0s.x1n2onr6.x1qughib.x6s0dn4.xozqiw3.x1q0g3np")
 
-    try:
-        scroll_container = wait.until(EC.presence_of_element_located(SELETOR_CONTAINER_SCROLL))
-        logging.info("      ✅ Container de rolagem de curtidas encontrado.")
-    except Exception as e:
-        logging.error(f"      ❌ Não foi possível encontrar o container de rolagem de curtidas: {e}")
+    scroll_container = None
+    for seletor in SELETORES_CONTAINER_SCROLL:
+        try:
+            scroll_container = wait.until(EC.presence_of_element_located(seletor))
+            logging.info(f"      ✅ Container de rolagem encontrado com seletor: {seletor}")
+            break
+        except:
+            continue
+    
+    if not scroll_container:
+        logging.error("      ❌ Não foi possível encontrar o container de rolagem de curtidas com nenhum seletor")
         return {}
+        
+    # Aguarda um pouco mais para garantir que o container esteja totalmente carregado
+    time.sleep(2)
 
     tentativas_sem_novos = 0
     total_anterior = 0
@@ -173,7 +194,7 @@ def scrape_likes_from_modal(driver, wait, max_likes):
             # Rolagem suave de 20px por vez
             scroll_position += 20
             driver.execute_script("arguments[0].scrollTop = arguments[1]", scroll_container, scroll_position)
-            time.sleep(0.5)  # Tempo menor para rolagem mais fluida
+            time.sleep(1)  # Aumentado de 0.5 para 1 segundo para dar mais tempo para carregar novos elementos
             
         except Exception as e:
             logging.error(f"      ❌ Erro ao rolar ou coletar usuários: {e}")
@@ -182,6 +203,9 @@ def scrape_likes_from_modal(driver, wait, max_likes):
 
 def coletar_curtidas_de_posts(driver, wait, perfil_alvo, max_posts, max_curtidas):
     """Função principal que orquestra todo o processo de coleta de curtidas."""
+    
+    # Define o arquivo de saída específico para este perfil
+    arquivo_saida_curtidas = os.path.join(os.path.dirname(__file__), f"curtidas_completo_{perfil_alvo}.csv")
     
     post_links = get_post_links(driver, wait, perfil_alvo, max_posts)
     if not post_links:
@@ -194,13 +218,15 @@ def coletar_curtidas_de_posts(driver, wait, perfil_alvo, max_posts, max_curtidas
     ]
 
     # Cria o arquivo CSV com cabeçalho antes de começar
-    if not os.path.exists(ARQUIVO_SAIDA_CURTIDAS):
-        pd.DataFrame(columns=colunas).to_csv(ARQUIVO_SAIDA_CURTIDAS, index=False, encoding='utf-8')
+    if not os.path.exists(arquivo_saida_curtidas):
+        pd.DataFrame(columns=colunas).to_csv(arquivo_saida_curtidas, index=False, encoding='utf-8')
 
-    global data_post_global, texto_post_global
+    global data_post_global, texto_post_global, ARQUIVO_SAIDA_CURTIDAS
+    ARQUIVO_SAIDA_CURTIDAS = arquivo_saida_curtidas  # Define globalmente para uso no scrape_likes_from_modal
+    
     for i, post_url in enumerate(post_links):
         try:
-            logging.info(f"\n➡️  Analisando Post {i+1}/{len(post_links)}")
+            logging.info(f"\n➡️  Analisando Post {i+1}/{len(post_links)} do perfil {perfil_alvo}")
             driver.get(post_url)
 
             data_post, texto_post = get_post_details(driver, wait)
@@ -210,21 +236,96 @@ def coletar_curtidas_de_posts(driver, wait, perfil_alvo, max_posts, max_curtidas
             data_post_global = data_post
             texto_post_global = texto_post
 
-            wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, '/liked_by/')]"))).click()
-            wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, '/liked_by/')]"))).click()
+            # Aguarda mais tempo para o link de curtidas carregar
+            time.sleep(2)
+            
+            # Tenta fechar qualquer modal ou overlay que possa estar aberto
+            try:
+                driver.find_element(By.XPATH, "//div[@role='dialog']//div[contains(@aria-label, 'Fechar')] | //div[@role='dialog']//button").click()
+                time.sleep(1)
+            except:
+                pass
+            
+            # Estratégia 1: Tenta clicar no link de curtidas diretamente
+            try:
+                curtidas_link = wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, '/liked_by/')]")))
+                driver.execute_script("arguments[0].scrollIntoView(true);", curtidas_link)
+                time.sleep(1)
+                curtidas_link.click()
+                logging.info("      ✅ Clique no link de curtidas realizado com sucesso (método 1)")
+            except Exception as e1:
+                logging.warning(f"      ⚠️ Método 1 falhou: {e1}")
+                
+                # Estratégia 2: Usa JavaScript para clicar
+                try:
+                    curtidas_link = driver.find_element(By.XPATH, "//a[contains(@href, '/liked_by/')]")
+                    driver.execute_script("arguments[0].click();", curtidas_link)
+                    logging.info("      ✅ Clique no link de curtidas realizado com sucesso (método 2 - JavaScript)")
+                except Exception as e2:
+                    logging.warning(f"      ⚠️ Método 2 falhou: {e2}")
+                    
+                    # Estratégia 3: Tenta encontrar outro seletor para curtidas
+                    try:
+                        # Seletor alternativo - busca por texto "curtidas" ou número de curtidas
+                        curtidas_element = driver.find_element(By.XPATH, "//button[contains(@class, 'x1i10hfl') and contains(., 'curtida')]")
+                        driver.execute_script("arguments[0].click();", curtidas_element)
+                        logging.info("      ✅ Clique no elemento de curtidas realizado com sucesso (método 3)")
+                    except Exception as e3:
+                        logging.error(f"      ❌ Todos os métodos falharam. Pulando este post. Erros: {e1}, {e2}, {e3}")
+                        continue
+            
+            # Aguarda o modal de curtidas carregar
+            time.sleep(3)
 
             likers = scrape_likes_from_modal(driver, wait, max_curtidas)
             logging.info(f"   ✅ Coletadas {len(likers)} curtidas para este post.")
 
+            # Estratégias para fechar o modal de curtidas
+            modal_fechado = False
+            
+            # Estratégia 1: Botão de fechar padrão
             try:
-                driver.find_element(By.XPATH, "//div[@role='dialog']//div[contains(@aria-label, 'Fechar')] | //div[@role='dialog']//button").click()
+                fechar_btn = driver.find_element(By.XPATH, "//div[@role='dialog']//div[contains(@aria-label, 'Fechar')] | //div[@role='dialog']//button[contains(@aria-label, 'Fechar')]")
+                driver.execute_script("arguments[0].click();", fechar_btn)
+                modal_fechado = True
+                logging.info("      ✅ Modal fechado com sucesso (método 1)")
             except:
-                driver.get(f"https://www.instagram.com/{perfil_alvo}/")
+                pass
+            
+            # Estratégia 2: Pressionar ESC
+            if not modal_fechado:
+                try:
+                    from selenium.webdriver.common.keys import Keys
+                    driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+                    modal_fechado = True
+                    logging.info("      ✅ Modal fechado com sucesso (método 2 - ESC)")
+                except:
+                    pass
+            
+            # Estratégia 3: Clicar fora do modal
+            if not modal_fechado:
+                try:
+                    # Clica em uma área vazia para fechar o modal
+                    driver.execute_script("document.body.click();")
+                    modal_fechado = True
+                    logging.info("      ✅ Modal fechado com sucesso (método 3 - clique externo)")
+                except:
+                    pass
+            
+            # Se nada funcionou, navega de volta ao perfil
+            if not modal_fechado:
+                try:
+                    driver.get(f"https://www.instagram.com/{perfil_alvo}/")
+                    logging.info("      ⚠️ Navegação forçada de volta ao perfil")
+                except:
+                    pass
+                    
             time.sleep(1)
         except Exception as e:
             logging.error(f"   ❌ Falha ao processar o post {post_url}. Erro: {e}")
             continue
 
+    logging.info(f"✅ Finalizada a coleta do perfil {perfil_alvo}! Dados salvos em {arquivo_saida_curtidas}")
     # Não retorna mais os dados, pois já foram salvos incrementalmente
     return None
 
@@ -236,11 +337,29 @@ if __name__ == "__main__":
         options.add_argument("--start-maximized")
         options.add_experimental_option('excludeSwitches', ['enable-logging'])
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        wait = WebDriverWait(driver, 2)
+        wait = WebDriverWait(driver, 10)  # Aumentado de 2 para 10 segundos
         
         if perform_login(driver, wait, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD):
-            coletar_curtidas_de_posts(driver, wait, PERFIL_ALVO, MAX_POSTS_PARA_ANALISAR, MAX_CURTIDAS_POR_POST)
-            logging.info(f"\n✅ Processo finalizado! Os dados de curtidas foram salvos incrementalmente em {ARQUIVO_SAIDA_CURTIDAS}")
+            logging.info(f"\n🚀 Iniciando coleta sequencial de {len(PERFIS_ALVO)} perfis...")
+            
+            for i, perfil_atual in enumerate(PERFIS_ALVO, 1):
+                logging.info(f"\n📊 === PERFIL {i}/{len(PERFIS_ALVO)}: @{perfil_atual} ===")
+                
+                try:
+                    coletar_curtidas_de_posts(driver, wait, perfil_atual, MAX_POSTS_PARA_ANALISAR, MAX_CURTIDAS_POR_POST)
+                    logging.info(f"✅ Perfil @{perfil_atual} concluído com sucesso!")
+                    
+                    # Pausa entre perfis para evitar sobrecarga
+                    if i < len(PERFIS_ALVO):
+                        logging.info("⏳ Aguardando 10 segundos antes do próximo perfil...")
+                        time.sleep(10)
+                        
+                except Exception as e:
+                    logging.error(f"❌ Erro ao processar perfil @{perfil_atual}: {e}")
+                    logging.info("➡️ Continuando para o próximo perfil...")
+                    continue
+            
+            logging.info(f"\n🎉 PROCESSO COMPLETAMENTE FINALIZADO! Todos os {len(PERFIS_ALVO)} perfis foram processados.")
 
     except Exception as final_e:
         logging.critical(f"❌ Um erro inesperado ocorreu no fluxo principal: {final_e}")
