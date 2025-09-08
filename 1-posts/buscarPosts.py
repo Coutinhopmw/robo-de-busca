@@ -29,10 +29,7 @@ INSTAGRAM_PASSWORD = "Pro35c0l@2025"
 
 # Lista de perfis para análise sequencial (até 5 perfis)
 PERFIS_ALVO = [
-    "tocabarbershop_barbearia",
-    "brunolima.barber",
-    "barbeariavargasofficial"
-    ""
+    "drrobertokalil"
 ]
 
 # Limites (ajuste conforme necessário)
