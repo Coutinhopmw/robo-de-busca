@@ -146,7 +146,7 @@ def main():
     pasta_csvs = os.path.join(os.path.dirname(__file__), "dados_nao_tratados")
     padrao_csvs = os.path.join(pasta_csvs, "*.csv")
     arquivos_csv = glob.glob(padrao_csvs)
-    arquivo_saida = os.path.join(os.path.dirname(__file__), "curtidas_completo_joycekarolina_naildesigner.csv")
+    arquivo_saida = os.path.join(os.path.dirname(__file__), "afya-paloma-bandeira-fisioulbra-primicast-ulbrapalmas-seducgo-unitop.csv")
     data_leitura = datetime.now().strftime("%Y-%m-%d")
 
     print("="*60)
@@ -175,7 +175,6 @@ def main():
             if 'url_foto_perfil' in df.columns:
                 # Considera que se o valor não for vazio/nulo, tem foto de perfil
                 df['foto_perfil'] = df['url_foto_perfil'].apply(lambda x: 1 if pd.notnull(x) and str(x).strip() != '' else 0)
-                df = df.drop(columns=['url_foto_perfil'])
 
             # Adiciona coluna de origem
             df['arquivo_origem'] = os.path.basename(caminho_csv)

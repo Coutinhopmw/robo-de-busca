@@ -180,10 +180,18 @@ def main():
             if 'nome_completo_curtiu' in df_tratado.columns:
                 df_tratado = df_tratado.rename(columns={'nome_completo_curtiu': 'nome_completo'})
 
+
+            # Garante que as colunas importantes existam e preenche com zero se ausentes ou nulas
+            colunas_importantes = ['bio', 'n_publicacoes', 'n_seguidores', 'n_seguindo', 'link_externo', 'verificado_extra', 'status_conta']
+            for col in colunas_importantes:
+                if col not in df_tratado.columns:
+                    df_tratado[col] = 0
+                else:
+                    df_tratado[col] = df_tratado[col].fillna(0)
+
             # Remove colunas indesejadas
             colunas_remover = [
-                'data_post', 'texto_post', 'n_publicacoes', 'n_seguidores', 'n_seguindo',
-                'link_externo', 'verificado_extra', 'status_conta', 'verificado.1', 'bio'
+                'data_post', 'texto_post', 'verificado.1'
             ]
             for col in colunas_remover:
                 if col in df_tratado.columns:
