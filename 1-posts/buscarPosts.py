@@ -39,7 +39,6 @@ PERFIS_ALVO = [
     "afya.palmas",
     "fisioterapiaceulp",
     "ulbrapalmas"
-
 ]
 
 # Limites (ajuste conforme necessário)
