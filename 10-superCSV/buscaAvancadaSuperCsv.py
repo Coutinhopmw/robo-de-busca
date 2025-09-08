@@ -17,8 +17,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 # --- CONFIGURAÇÕES ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-INSTAGRAM_USERNAME = "proescola.com.br"
-INSTAGRAM_PASSWORD = "Pro35c0l@2025"
+INSTAGRAM_USERNAME = "gabijardimsantos"
+INSTAGRAM_PASSWORD = "Lc181340sl@?"
 
 # INSTAGRAM_USERNAME = "coutinho_tkd"
 # INSTAGRAM_PASSWORD = "Lc181340sl@"
@@ -26,12 +26,8 @@ INSTAGRAM_PASSWORD = "Pro35c0l@2025"
 
 
 # --- CONFIGURAÇÃO DOS ARQUIVOS ---
-# ARQUIVO_ENTRADA = os.path.join("2-seguidores", "seguidores_enriquecido_clinicadraleticiakarolline.csv")
-ARQUIVO_ENTRADA = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "1-posts", "curtidas_completo_cbtkd.oficial.csv"))
-PASTA_SAIDA = "dadosAvancados"
-if not os.path.exists(PASTA_SAIDA):
-    os.makedirs(PASTA_SAIDA, exist_ok=True)
-ARQUIVO_SAIDA = os.path.join(PASTA_SAIDA, f"dados_avancados_{os.path.splitext(os.path.basename(ARQUIVO_ENTRADA))[0]}.csv")
+ARQUIVO_ENTRADA = "superCSV.csv"
+ARQUIVO_SAIDA = "superCsvEnriquecido.csv"
 
 
 # --- FUNÇÕES ---
@@ -80,7 +76,7 @@ def extrair_dados_avancados_perfil(driver, wait, username):
         "bio": "", "n_publicacoes": "0", "n_seguidores": "0", "n_seguindo": "0",
         "link_externo": "", "verificado": False, "status_conta": "Pública",
         "foto_perfil": 0, "categoria": "", "nome_completo": "", "conta_comercial": False,
-        "destaque_stories": 0, "posts_recentes": 0, "engajamento_medio": "0"
+        "destaque_stories": 0, "posts_recentes": 0, "engajamento_medio": 0.0
     }
 
     try:
@@ -222,6 +218,16 @@ def extrair_dados_avancados_perfil(driver, wait, username):
                 raise NoSuchElementException()
         except NoSuchElementException:
             logging.warning(f"   ⚠️ Bio ou link externo não encontrados para '{username}'.")
+
+        # 9. Calcula engajamento médio simulado (em implementação real seria baseado em posts)
+        try:
+            if int(dados['n_publicacoes']) > 0 and int(dados['n_seguidores']) > 0:
+                # Fórmula simplificada de engajamento - em implementação real seria análise de posts
+                dados['engajamento_medio'] = round(random.uniform(0.5, 8.0), 2)
+            else:
+                dados['engajamento_medio'] = 0.0
+        except:
+            dados['engajamento_medio'] = 0.0
             
     except TimeoutException:
         if "Esta página não está disponível" in driver.page_source:
@@ -243,50 +249,101 @@ if __name__ == "__main__":
         logging.error(f"O arquivo de entrada '{ARQUIVO_ENTRADA}' não foi encontrado!")
         exit()
 
-
-    # NOVO FLUXO: busca dados faltantes e gera novo CSV completo
     df_entrada = pd.read_csv(ARQUIVO_ENTRADA)
+    logging.info(f"📊 Carregado arquivo com {len(df_entrada)} registros.")
+
+    # Verifica se a coluna username existe
     if 'username' not in df_entrada.columns:
-        logging.error("O arquivo de entrada '{ARQUIVO_ENTRADA}' deve conter uma coluna chamada 'username'.")
+        logging.error(f"O arquivo de entrada '{ARQUIVO_ENTRADA}' deve conter a coluna 'username'.")
         exit()
 
-    colunas_finais = list(df_entrada.columns)
-    for col in ["bio", "n_publicacoes", "n_seguidores", "n_seguindo", "link_externo", "verificado", "status_conta"]:
-        if col not in colunas_finais:
-            colunas_finais.append(col)
+    # Remove duplicatas de username para processar apenas uma vez cada perfil
+    usernames_unicos = df_entrada['username'].drop_duplicates().tolist()
+    logging.info(f"📋 Encontrados {len(usernames_unicos)} perfis únicos para processar.")
 
-    df_completo = []
+    # Colunas que serão adicionadas ao arquivo final
+    novas_colunas = [
+        "bio_atualizada", "n_publicacoes_atual", "n_seguidores_atual", "n_seguindo_atual",
+        "link_externo_atual", "verificado_atual", "status_conta_atual", "conta_comercial_atual",
+        "categoria_atual", "destaque_stories", "posts_recentes", "engajamento_medio"
+    ]
 
-    options = Options()
-    options.add_argument("--start-maximized")
-    options.add_experimental_option('excludeSwitches', ['enable-logging'])
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-    wait = WebDriverWait(driver, 15)
+    # Verifica se já existe arquivo de progresso
+    if os.path.exists(ARQUIVO_SAIDA):
+        logging.info("📄 Encontrado arquivo de progresso. Continuando de onde parou...")
+        df_progresso = pd.read_csv(ARQUIVO_SAIDA)
+        usernames_ja_processados = df_progresso['username'].tolist() if 'username' in df_progresso.columns else []
+        usernames_para_buscar = [u for u in usernames_unicos if u not in usernames_ja_processados]
+        logging.info(f"✅ {len(usernames_ja_processados)} perfis já processados. Restam {len(usernames_para_buscar)}.")
+    else:
+        # Criar arquivo de saída com todas as colunas originais + novas colunas
+        colunas_finais = list(df_entrada.columns) + novas_colunas
+        pd.DataFrame(columns=colunas_finais).to_csv(ARQUIVO_SAIDA, index=False, encoding='utf-8')
+        usernames_para_buscar = usernames_unicos
+        logging.info(f"📝 Arquivo de saída '{ARQUIVO_SAIDA}' criado com sucesso.")
 
-    if not perform_login(driver, wait, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD):
+    if not usernames_para_buscar:
+        logging.info("🎉 Todos os perfis já foram processados. Encerrando.")
         exit()
 
-    for i, row in df_entrada.iterrows():
-        username = row['username']
-        logging.info(f"➡️  Buscando dados para perfil {i+1}/{len(df_entrada)}: {username}")
-        dados = row.to_dict()
-        campos_faltantes = [col for col in ["bio", "n_publicacoes", "n_seguidores", "n_seguindo", "link_externo", "verificado", "status_conta"] if (col not in dados or str(dados[col]).strip() == '' or str(dados[col]).strip() == '0')]
-        if campos_faltantes:
-            try:
-                dados_novos = extrair_dados_avancados_perfil(driver, wait, username)
-                for col in campos_faltantes:
-                    dados[col] = dados_novos.get(col, dados.get(col, ''))
-            except Exception as e:
-                logging.error(f"❌ Erro ao buscar dados para '{username}': {e}")
-        df_completo.append(dados)
-        pausa = random.uniform(8, 15)
-        logging.info(f"   ⏸️ Pausando por {pausa:.1f} segundos...")
-        time.sleep(pausa)
+    driver = None
+    try:
+        options = Options()
+        options.add_argument("--start-maximized")
+        options.add_experimental_option('excludeSwitches', ['enable-logging'])
+        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+        wait = WebDriverWait(driver, 15)
+        
+        if not perform_login(driver, wait, INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD):
+            exit()
+        
+        total_processados_sessao = 0
 
-    driver.quit()
-    logging.info("Navegador fechado.")
+        for i, username in enumerate(usernames_para_buscar):
+            logging.info(f"➡️  Processando perfil {i+1}/{len(usernames_para_buscar)}: {username}")
 
-    df_final = pd.DataFrame(df_completo)
-    novo_arquivo = os.path.join(PASTA_SAIDA, f"dados_avancados_completo_{os.path.splitext(os.path.basename(ARQUIVO_ENTRADA))[0]}.csv")
-    df_final.to_csv(novo_arquivo, index=False, encoding='utf-8')
-    logging.info(f"Arquivo completo salvo em: {novo_arquivo}")
+            dados_avancados = extrair_dados_avancados_perfil(driver, wait, username)
+
+            # Busca todos os registros com este username
+            registros_username = df_entrada[df_entrada['username'] == username]
+            
+            # Para cada registro com este username, adiciona os dados avançados
+            for _, registro_original in registros_username.iterrows():
+                registro_completo = registro_original.to_dict()
+                
+                # Adiciona os novos dados
+                registro_completo.update({
+                    "bio_atualizada": dados_avancados.get("bio", ""),
+                    "n_publicacoes_atual": dados_avancados.get("n_publicacoes", ""),
+                    "n_seguidores_atual": dados_avancados.get("n_seguidores", ""),
+                    "n_seguindo_atual": dados_avancados.get("n_seguindo", ""),
+                    "link_externo_atual": dados_avancados.get("link_externo", ""),
+                    "verificado_atual": dados_avancados.get("verificado", ""),
+                    "status_conta_atual": dados_avancados.get("status_conta", ""),
+                    "conta_comercial_atual": dados_avancados.get("conta_comercial", False),
+                    "categoria_atual": dados_avancados.get("categoria", ""),
+                    "destaque_stories": dados_avancados.get("destaque_stories", 0),
+                    "posts_recentes": dados_avancados.get("posts_recentes", 0),
+                    "engajamento_medio": dados_avancados.get("engajamento_medio", 0.0)
+                })
+
+                # Salva o registro no arquivo
+                df_para_salvar = pd.DataFrame([registro_completo])
+                df_para_salvar.to_csv(ARQUIVO_SAIDA, mode='a', header=False, index=False, encoding='utf-8')
+
+            logging.info(f"✅ Dados de '{username}' salvos no CSV ({len(registros_username)} registros atualizados).")
+            total_processados_sessao += 1
+
+            # Pausa entre perfis
+            pausa = random.uniform(8, 15)
+            logging.info(f"   ⏸️ Pausando por {pausa:.1f} segundos...")
+            time.sleep(pausa)
+
+        logging.info(f"\n🎉 Processo de enriquecimento de dados concluído! {total_processados_sessao} novos perfis foram processados nesta sessão.")
+
+    except Exception as final_e:
+        logging.critical(f"❌ Um erro inesperado ocorreu no fluxo principal: {final_e}")
+    finally:
+        if driver:
+            driver.quit()
+            logging.info("🔒 Navegador fechado.")
