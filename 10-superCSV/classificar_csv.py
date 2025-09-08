@@ -27,7 +27,6 @@ CLASSES = {
     'pilates': [r'pilates'],
     'dr': [r'\bdr\b', r'\bdra\b', r'dr\.', r'dra\.', r'doutor', r'doutora'],
     'clinica': [r'clinica', r'clínica'],
-    # Adicione outras classes e palavras-chave conforme necessário
 }
 
 PASTA_SAIDA = os.path.join(os.path.dirname(__file__), 'classificados')

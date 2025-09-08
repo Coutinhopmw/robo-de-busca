@@ -1,5 +1,0 @@
-username,nome_completo,verificado,status_relacao,foto_perfil,arquivo_origem,data_leitura,quantidade_aparicoes,classe
-laboratorioortofuncional,laboratorioortofuncional,False,Seguir,1,curtidas_completo_cbtkd.oficial.csv,2025-08-28,1,clinica_exames
-araguaialaboratorio,araguaialaboratorio,False,Seguir,1,curtidas_completo_sebraeto.csv,2025-08-28,2,clinica_exames
-laboratoriocentralpan,laboratoriocentralpan,False,Seguir,1,curtidas_tratado_confresa_vila_rica_sao_felix_MT.csv,2025-08-28,1,clinica_exames
-laboratoriomaisaude,laboratoriomaisaude,False,Seguir,1,seguidores_enriquecido_fisiocep.csv,2025-08-28,1,clinica_exames

@@ -18,18 +18,27 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # INSTAGRAM_USERNAME = "antoniocassiorodrigueslima@gmail.com"
 # INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
 
-INSTAGRAM_USERNAME = "proescola.com.br"
-INSTAGRAM_PASSWORD = "Pro35c0l@2025"
+# INSTAGRAM_USERNAME = "proescola.com.br"
+# INSTAGRAM_PASSWORD = "Pro35c0l@2025"
 
 # INSTAGRAM_USERNAME = "anaflvasantos@gmail.com"
 # INSTAGRAM_PASSWORD = "Lc181340sl@?"
+
+
+INSTAGRAM_USERNAME = "henriquesantos200522@gmail.com"
+INSTAGRAM_PASSWORD = "Lc181340sl@?"
+
 
 # INSTAGRAM_USERNAME = "orkestraerp"
 # INSTAGRAM_PASSWORD = "Lc181340sl@?"
 
 # Lista de perfis para análise sequencial (até 5 perfis)
 PERFIS_ALVO = [
-    "drrobertokalil"
+    "dra.palomabandeira",
+    "unitopoficial",
+    "afya.palmas",
+    "fisioterapiaceulp",
+    "ulbrapalmas"
 ]
 
 # Limites (ajuste conforme necessário)
