@@ -24,8 +24,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # INSTAGRAM_USERNAME = "anaflvasantos@gmail.com"
 # INSTAGRAM_PASSWORD = "Lc181340sl@?"
 
+
 INSTAGRAM_USERNAME = "henriquesantos200522@gmail.com"
 INSTAGRAM_PASSWORD = "Lc181340sl@?"
+
 
 # INSTAGRAM_USERNAME = "orkestraerp"
 # INSTAGRAM_PASSWORD = "Lc181340sl@?"
@@ -37,7 +39,7 @@ PERFIS_ALVO = [
     "afya.palmas",
     "fisioterapiaceulp",
     "ulbrapalmas"
-    
+
 ]
 
 # Limites (ajuste conforme necessário)
