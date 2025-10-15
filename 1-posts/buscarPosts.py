@@ -18,31 +18,26 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # INSTAGRAM_USERNAME = "antoniocassiorodrigueslima@gmail.com"
 # INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
 
-# INSTAGRAM_USERNAME = "proescola.com.br"
-# INSTAGRAM_PASSWORD = "Pro35c0l@2025"
+INSTAGRAM_USERNAME = "proescola.com.br"
+INSTAGRAM_PASSWORD = "Pro35c0l@2025"
 
 # INSTAGRAM_USERNAME = "anaflvasantos@gmail.com"
 # INSTAGRAM_PASSWORD = "Lc181340sl@?"
 
 
-INSTAGRAM_USERNAME = "henriquesantos200522@gmail.com"
-INSTAGRAM_PASSWORD = "Lc181340sl@?"
-
-
-# INSTAGRAM_USERNAME = "orkestraerp"
+# INSTAGRAM_USERNAME = "henriquesantos200522@gmail.com"
 # INSTAGRAM_PASSWORD = "Lc181340sl@?"
+
+# INSTAGRAM_USERNAME = "orkestragestao"
+# INSTAGRAM_PASSWORD = "Lc181340sl@?" 
 
 # Lista de perfis para análise sequencial (até 5 perfis)
 PERFIS_ALVO = [
-    "dra.palomabandeira",
-    "unitopoficial",
-    "afya.palmas",
-    "fisioterapiaceulp",
-    "ulbrapalmas"
+    "flavioaugustogv"
 ]
 
 # Limites (ajuste conforme necessário)
-MAX_POSTS_PARA_ANALISAR = 300
+MAX_POSTS_PARA_ANALISAR = 600
 MAX_CURTIDAS_POR_POST = float('inf') # Use float('inf') para pegar todos
 
 

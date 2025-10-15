@@ -17,8 +17,14 @@ from webdriver_manager.chrome import ChromeDriverManager
 # --- CONFIGURAÇÕES ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-INSTAGRAM_USERNAME = "gabijardimsantos"
+# INSTAGRAM_USERNAME = "gabijardimsantos"
+# INSTAGRAM_PASSWORD = "Lc181340sl@?"
+
+
+INSTAGRAM_USERNAME = "henriquesantos200522@gmail.com"
 INSTAGRAM_PASSWORD = "Lc181340sl@?"
+
+
 
 # INSTAGRAM_USERNAME = "coutinho_tkd"
 # INSTAGRAM_PASSWORD = "Lc181340sl@"
