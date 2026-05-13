@@ -17,7 +17,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 INSTAGRAM_USERNAME = "orkestragestao"
-INSTAGRAM_PASSWORD = "Lc181340sl@?" 
+INSTAGRAM_PASSWORD = "Lc181340sl@*" 
 
 # INSTAGRAM_USERNAME = "proescola.com.br"
 # INSTAGRAM_PASSWORD = "Pro35c0l@2025"
@@ -56,6 +56,11 @@ def perform_login(driver, wait, username, password):
                 WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, "//*[text()='Agora não' or text()='Not Now' or text()='Dispensar']"))).click()
                 logging.info("Pop-up de notificação/salvamento fechado.")
             except: pass
+        
+        # Espera de 2 minutos após o login para proteger a conta
+        logging.info("⏱️  Aguardando 2 minutos após o login para proteger a conta...")
+        time.sleep(120)  # 2 minutos
+        logging.info("✅ Pausa de segurança concluída. Continuando com as ações...")
     except Exception as e:
         logging.error(f"❌ Erro inesperado durante o login: {e}")
         return False

@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 INSTAGRAM_USERNAME = "antoniocassiorodrigueslima"
 INSTAGRAM_PASSWORD = "Lc181340@#LSA$(*C"
 
-PERFIL_ALVO = "ciotocantins" 
+PERFIL_ALVO = "jiujitsubrasiloficial" 
 
 LIMITE_SEGUIDORES = float('inf') 
 # Nome do arquivo de saída atualizado para refletir o conteúdo
