@@ -46,9 +46,16 @@ def perform_login(driver, wait, username, password):
     logging.info("🔑 Realizando login...")
     driver.get("https://www.instagram.com/accounts/login/")
     try:
-        wait.until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(username)
-        driver.find_element(By.NAME, "password").send_keys(password + Keys.RETURN)
-        wait.until(EC.url_contains("instagram.com"))
+        try:
+            # Tenta preencher login/senha com um limite maior de tempo
+            WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(username)
+            driver.find_element(By.NAME, "password").send_keys(password + Keys.RETURN)
+        except Exception:
+            logging.warning("⚠️ Não foi possível preencher o login automaticamente. (Pode ser um banner de cookies). Por favor, faça o login manualmente se necessário.")
+
+        logging.info("⏱️  Aguardando 4 minutos para a realização do login (2FA, verificação, inserir senha manual, etc)...")
+        time.sleep(240)  # 4 minutos
+        
         logging.info("✅ Login realizado com sucesso.")
         # Lida com múltiplos pop-ups que podem aparecer após o login
         for _ in range(2):
@@ -57,9 +64,6 @@ def perform_login(driver, wait, username, password):
                 logging.info("Pop-up de notificação/salvamento fechado.")
             except: pass
         
-        # Espera de 2 minutos após o login para proteger a conta
-        logging.info("⏱️  Aguardando 2 minutos após o login para proteger a conta...")
-        time.sleep(120)  # 2 minutos
         logging.info("✅ Pausa de segurança concluída. Continuando com as ações...")
     except Exception as e:
         logging.error(f"❌ Erro inesperado durante o login: {e}")
