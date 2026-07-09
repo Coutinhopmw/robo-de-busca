@@ -21,7 +21,7 @@ INSTAGRAM_PASSWORD = "Lc181340sl@*"
 
 # INSTAGRAM_USERNAME = "proescola.com.br"
 # INSTAGRAM_PASSWORD = "Pro35c0l@2025"
-                                                                      
+
 
 # ============================ AÇÃO NECESSÁRIA AQUI (EDITAR) ============================
 # 1. Nome do arquivo CSV que contém a coluna 'username'.
@@ -78,40 +78,28 @@ def seguir_perfil(driver, wait, username):
     try:
         header = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.TAG_NAME, "header")))
         
-        botao_seguir = None
+        # ======================= SELETOR CORRIGIDO =======================
+        # O seletor foi ajustado para procurar por um botão que CONTENHA o texto "Seguir",
+        # o que é mais robusto do que procurar por texto exato.
+        botao_seguir = header.find_element(By.XPATH, ".//button[contains(., 'Seguir')]")
+        # =================================================================
         
-        try:
-            # 1ª Tentativa: Buscar botão que contenha o texto "Seguir" (Abordagem semântica)
-            botao_seguir = header.find_element(By.XPATH, ".//button[contains(., 'Seguir')]")
-        except NoSuchElementException:
-            logging.info(f"   - Botão padrão não encontrado para '{username}'. Tentando fallback por classes...")
-            
-            # 2ª Tentativa: Busca pela estrutura de DIV com as classes fornecidas
-            classes_alvo = "xdj266r x14z9mp xat24cr x1lziwak xexx8yu xyri2b x18d9i69 x1c1uobl x9f619 xjbqb8w x78zum5 x15mokao x1ga7v0g x16uus16 xbiv7yw x1n2onr6 x1plvlek xryxfnj x1iyjqo2 x2lwn1j xeuugli xdt5ytf xqjyukv x1qjc9v5 x1oa3qoh x1nhvcw1"
-            
-            # Converte a string de classes com espaços em um seletor CSS válido: div.classe1.classe2...
-            seletor_css = "div." + ".".join(classes_alvo.split())
-            
-            try:
-                botao_seguir = header.find_element(By.CSS_SELECTOR, seletor_css)
-            except NoSuchElementException:
-                logging.info(f"   - Perfil '{username}' já seguido, pendente, ou layout bloqueado. Ignorando.")
-                return False
-        
-        # Checagem extra de segurança para validar se o elemento encontrado realmente é a ação de seguir
-        texto_botao = botao_seguir.text.strip()
-        
-        # O texto pode vir vazio dependendo da renderização da div pelo React no fallback
-        if "Seguir" in texto_botao or texto_botao == "":
+        # Checagem extra para garantir que não estamos clicando em "Deixar de seguir"
+        if "Seguir" in botao_seguir.text:
             botao_seguir.click()
             logging.info(f"   ✅ Perfil '{username}' seguido com sucesso.")
             return True
         else:
-            logging.info(f"   - Elemento encontrado para '{username}' tem ação diferente: '{texto_botao}'. Ignorando.")
+            # Caso o botão contenha "Seguir" mas também outra palavra (ex: "Seguir também"),
+            # esta lógica previne cliques indesejados.
+            logging.info(f"   - Botão encontrado para '{username}' não era 'Seguir'. Texto: '{botao_seguir.text}'. Ignorando.")
             return False
 
+    except NoSuchElementException:
+        logging.info(f"   - Perfil '{username}' já seguido ou solicitação pendente. Ignorando.")
+        return False
     except TimeoutException:
-        logging.error(f"   ❌ Timeout ao carregar o header do perfil de '{username}'.")
+        logging.error(f"   ❌ Timeout ao carregar o perfil de '{username}'.")
         return False
     except Exception as e:
         logging.error(f"   ❌ Erro inesperado ao tentar seguir '{username}': {e}")
